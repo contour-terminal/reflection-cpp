@@ -81,7 +81,7 @@ namespace detail
         constexpr auto joined_arr = []() {
             constexpr size_t len = (Strs.size() + ... + 0);
             std::array<char, len + 1> arr {};
-            auto append = [i = 0, &arr](const auto& s) mutable {
+            auto append = [i = 0u, &arr](const auto& s) mutable {
                 for (auto c: s)
                     arr[i++] = c;
             };
@@ -356,13 +356,13 @@ consteval std::string_view GetName()
 #if defined(_MSC_VER) && !defined(__clang__)
     if constexpr (std::is_member_object_pointer_v<decltype(P)>)
     {
-        using T = remove_member_pointer<std::decay_t<decltype(P)>>::type;
+        using T = detail::remove_member_pointer<std::decay_t<decltype(P)>>::type;
         constexpr auto p = P;
         return detail::get_name_msvc<T, &(detail::External<T>.*p)>();
     }
     else
     {
-        using T = remove_member_pointer<std::decay_t<decltype(P)>>::type;
+        using T = detail::remove_member_pointer<std::decay_t<decltype(P)>>::type;
         return detail::func_name_msvc<T, P>();
     }
 #else
@@ -384,8 +384,9 @@ consteval auto GetName()
     str = str.substr(str.rfind("::") + 2);
     return str.substr(0, str.find('>'));
 #else
+    constexpr auto MarkerStart = std::string_view { "E = " };
     std::string_view str = REFLECTION_PRETTY_FUNCTION;
-    str = str.substr(str.rfind("::") + 2 + 15);
+    str = str.substr(str.rfind(MarkerStart) + MarkerStart.size());
     str = str.substr(0, str.find(']'));
     return str;
 #endif
@@ -396,8 +397,8 @@ std::string Inspect(Object const& object)
 {
     return [&]<size_t... I>(std::index_sequence<I...>) {
         std::string str;
-        auto onMember = [&str](auto&& name, auto&& value) {
-            auto onValue = [&str]<typename T>(T&& arg) {
+        auto const onMember = [&str]<typename Name, typename Value>(Name&& name, Value&& value) {
+            auto const InspectValue = [&str]<typename T>(T&& arg) {
                 // clang-format off
                 if constexpr (std::is_convertible_v<T, std::string> 
                        || std::is_convertible_v<T, std::string_view>
@@ -410,7 +411,7 @@ std::string Inspect(Object const& object)
                 str += ' ';
             str += name;
             str += '=';
-            onValue(value);
+            InspectValue(value);
         };
         (onMember(MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))), ...);
         return str;

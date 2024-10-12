@@ -63,7 +63,7 @@ if(BOXED_TESTING)
         test-reflection-cpp.cpp
     )
     target_compile_features(test-reflection-cpp INTERFACE cxx_std_20)
-    target_link_libraries(test-reflection-cpp reflection-cpp Catch2::Catch2WithMain)
+    target_link_libraries(test-reflection-cpp reflection-cpp Catch2::Catch2 Catch2::Catch2WithMain)
     add_test(test-reflection-cpp ./test-reflection-cpp)
 endif()
 message(STATUS "[reflection-cpp] Compile unit tests: ${BOXED_TESTING}")
