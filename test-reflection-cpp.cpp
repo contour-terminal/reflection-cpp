@@ -28,9 +28,29 @@ std::string inspect(Object const& object)
     }(std::make_index_sequence<Reflection::CountMembers<Object>> {});
 }
 
+enum Color
+{
+    Red,
+    Green,
+    Blue
+};
+
+TEST_CASE("GetName", "[reflection]")
+{
+    auto const enumValue = Reflection::GetName<Color::Red>();
+    CHECK(enumValue == "Red");
+
+    auto const enumValue2 = Reflection::GetName<Color::Green>();
+    CHECK(enumValue2 == "Green");
+
+    auto const person = Person { "John Doe", "john@doe.com", 42 };
+    auto const memberName1 = Reflection::GetName<&Person::email>();
+    CHECK(memberName1 == "email");
+}
+
 TEST_CASE("core", "[reflection]")
 {
-    auto p = Person { "John Doe", "jon@doe.com", 42 };
+    auto p = Person { "John Doe", "john@doe.com", 42 };
     std::cout << "Elements: " << Reflection::CountMembers<Person> << '\n';
     std::cout << inspect(p);
 

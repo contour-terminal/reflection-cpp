@@ -383,8 +383,9 @@ consteval auto GetName()
     return str.substr(0, str.find('>'));
 #else
     std::string_view str = REFLECTION_PRETTY_FUNCTION;
-    str = str.substr(str.rfind("::") + 2);
-    return str.substr(0, str.find(']'));
+    str = str.substr(str.rfind("::") + 2 + 15);
+    str = str.substr(0, str.find(']'));
+    return str;
 #endif
 }
 
