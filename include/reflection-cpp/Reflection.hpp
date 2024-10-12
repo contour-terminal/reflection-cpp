@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <array>
+#include <format>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -387,6 +389,32 @@ consteval auto GetName()
     str = str.substr(0, str.find(']'));
     return str;
 #endif
+}
+
+template <typename Object>
+std::string Inspect(Object const& object)
+{
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        std::string str;
+        auto onMember = [&str](auto&& name, auto&& value) {
+            auto onValue = [&str]<typename T>(T&& arg) {
+                // clang-format off
+                if constexpr (std::is_convertible_v<T, std::string> 
+                       || std::is_convertible_v<T, std::string_view>
+                       || std::is_convertible_v<T, char const*>) // clang-format on
+                    str += std::format("\"{}\"", arg);
+                else
+                    str += std::format("{}", arg);
+            };
+            if (!str.empty())
+                str += ' ';
+            str += name;
+            str += '=';
+            onValue(value);
+        };
+        (onMember(MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))), ...);
+        return str;
+    }(std::make_index_sequence<Reflection::CountMembers<Object>> {});
 }
 
 } // namespace Reflection

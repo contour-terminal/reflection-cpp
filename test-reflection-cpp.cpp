@@ -4,7 +4,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -14,19 +13,6 @@ struct Person
     std::string email;
     int age;
 };
-
-// TODO: This could be a public API function that prints all object members to a string (in a single-line)
-template <typename Object>
-std::string inspect(Object const& object)
-{
-    auto const& tuple = Reflection::ToTuple(object);
-    return [&]<size_t... I>(std::index_sequence<I...>) {
-        std::stringstream str;
-        ((str << "Member " << I << " (" << Reflection::MemberNameOf<I, Object> << "): " << std::get<I>(tuple) << '\n'),
-         ...);
-        return str.str();
-    }(std::make_index_sequence<Reflection::CountMembers<Object>> {});
-}
 
 enum Color
 {
@@ -51,8 +37,6 @@ TEST_CASE("GetName", "[reflection]")
 TEST_CASE("core", "[reflection]")
 {
     auto p = Person { "John Doe", "john@doe.com", 42 };
-    std::cout << "Elements: " << Reflection::CountMembers<Person> << '\n';
-    std::cout << inspect(p);
-
-    // TODO: make this a real test
+    auto const result = Reflection::Inspect(p);
+    CHECK(result == R"(name="John Doe" email="john@doe.com" age=42)");
 }
