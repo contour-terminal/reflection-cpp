@@ -347,7 +347,31 @@ namespace detail
 #elif defined(_MSC_VER)
 #endif
 
+    template <typename... Ts, typename F>
+    constexpr void enumerate_types(F&& f)
+    {
+        [&f]<auto... Is>(std::index_sequence<Is...>) {
+            (f.template operator()<Ts, Is>(), ...);
+        }(std::index_sequence_for<Ts...> {});
+    }
+
+    template <auto... Xs, typename F>
+    constexpr void for_values(F&& f)
+    {
+        (f.template operator()<Xs>(), ...);
+    }
+
 } // namespace detail
+
+template <auto B, auto E, typename F>
+constexpr void template_for(F&& f)
+{
+    using t = std::common_type_t<decltype(B), decltype(E)>;
+
+    [&f]<auto... Xs>(std::integer_sequence<t, Xs...>) {
+        detail::for_values<(B + Xs)...>(f);
+    }(std::make_integer_sequence<t, E - B> {});
+}
 
 template <auto P>
     requires(std::is_member_pointer_v<decltype(P)>)
@@ -392,30 +416,36 @@ consteval auto GetName()
 #endif
 }
 
+template <typename Object, typename Callable>
+decltype(auto) CallOnMembers(Object const& object, Callable&& callable)
+{
+    template_for<0, Reflection::CountMembers<Object>>(
+        [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
+}
+
 template <typename Object>
 std::string Inspect(Object const& object)
 {
-    return [&]<size_t... I>(std::index_sequence<I...>) {
-        std::string str;
-        auto const onMember = [&str]<typename Name, typename Value>(Name&& name, Value&& value) {
-            auto const InspectValue = [&str]<typename T>(T&& arg) {
-                // clang-format off
-                if constexpr (std::is_convertible_v<T, std::string> 
+    std::string str;
+    auto const onMember = [&str]<typename Name, typename Value>(Name&& name, Value&& value) {
+        auto const InspectValue = [&str]<typename T>(T&& arg) {
+            // clang-format off
+            if constexpr (std::is_convertible_v<T, std::string>
                        || std::is_convertible_v<T, std::string_view>
                        || std::is_convertible_v<T, char const*>) // clang-format on
-                    str += std::format("\"{}\"", arg);
-                else
-                    str += std::format("{}", arg);
-            };
-            if (!str.empty())
-                str += ' ';
-            str += name;
-            str += '=';
-            InspectValue(value);
+                str += std::format("\"{}\"", arg);
+            else
+                str += std::format("{}", arg);
         };
-        (onMember(MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))), ...);
-        return str;
-    }(std::make_index_sequence<Reflection::CountMembers<Object>> {});
+        if (!str.empty())
+            str += ' ';
+        str += name;
+        str += '=';
+        InspectValue(value);
+    };
+
+    CallOnMembers(object, onMember);
+    return str;
 }
 
 } // namespace Reflection

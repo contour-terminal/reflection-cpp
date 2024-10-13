@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-#include <reflection-cpp/Reflection.hpp>
+#include <reflection-cpp/reflection.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
