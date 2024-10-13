@@ -9,6 +9,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #if __has_include(<source_location>)
     #include <source_location>
@@ -459,4 +460,15 @@ std::string Inspect(Object const& object)
     return str;
 }
 
+template <typename Object>
+std::string Inspect(std::vector<Object> const& objects)
+{
+    std::string str;
+    for (auto const& object: objects)
+    {
+        str += Inspect(object);
+        str += '\n';
+    }
+    return str;
+}
 } // namespace Reflection

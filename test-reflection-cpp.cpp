@@ -50,6 +50,18 @@ TEST_CASE("core", "[reflection]")
     CHECK(result == R"(name="John Doe" email="john@doe.com" age=42)");
 }
 
+TEST_CASE("vector", "[reflection]")
+{
+    auto v = std::vector<Person> {};
+    v.emplace_back("John Doe", "john@doe.com", 42);
+    v.emplace_back("John Doe", "john@doe.com", 43);
+    auto const result = Reflection::Inspect(v);
+    CHECK(result == R"(name="John Doe" email="john@doe.com" age=42
+name="John Doe" email="john@doe.com" age=43
+)");
+    //clang-format on
+}
+
 TEST_CASE("nested", "[reflection]")
 {
     auto ts = TestStruct { 1, 2.0f, 3.0, "hello", { "John Doe", "john@doe.com", 42 } };
