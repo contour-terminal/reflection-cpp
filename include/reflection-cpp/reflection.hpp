@@ -361,6 +361,9 @@ namespace detail
         (f.template operator()<Xs>(), ...);
     }
 
+    template <typename T>
+    constexpr bool can_be_formatted = std::is_arithmetic_v<T> || std::is_convertible_v<T, std::string>;
+
 } // namespace detail
 
 template <auto B, auto E, typename F>
@@ -433,9 +436,17 @@ std::string Inspect(Object const& object)
             if constexpr (std::is_convertible_v<T, std::string>
                        || std::is_convertible_v<T, std::string_view>
                        || std::is_convertible_v<T, char const*>) // clang-format on
+            {
                 str += std::format("\"{}\"", arg);
-            else
+            }
+            else if constexpr (std::is_convertible_v<T, int>) // use std::formattable when available
+            {
                 str += std::format("{}", arg);
+            }
+            else
+            {
+                str += Inspect(arg);
+            }
         };
         if (!str.empty())
             str += ' ';
