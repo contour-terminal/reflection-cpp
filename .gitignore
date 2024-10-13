@@ -1,3 +1,5 @@
+[bB]uild
+[bB]uild/**
 compile_commands.json
 .cache/
 out/

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-#include <reflection-cpp/Reflection.hpp>
+#include <reflection-cpp/reflection.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <iostream>
 #include <string>
 #include <string_view>
 
@@ -11,6 +12,15 @@ struct Person
     std::string_view name;
     std::string email;
     int age;
+};
+
+struct TestStruct
+{
+    int a;
+    float b;
+    double c;
+    std::string d;
+    Person e;
 };
 
 enum Color
@@ -38,4 +48,23 @@ TEST_CASE("core", "[reflection]")
     auto p = Person { "John Doe", "john@doe.com", 42 };
     auto const result = Reflection::Inspect(p);
     CHECK(result == R"(name="John Doe" email="john@doe.com" age=42)");
+}
+
+TEST_CASE("vector", "[reflection]")
+{
+    auto v = std::vector<Person> {};
+    v.emplace_back("John Doe", "john@doe.com", 42);
+    v.emplace_back("John Doe", "john@doe.com", 43);
+    auto const result = Reflection::Inspect(v);
+    CHECK(result == R"(name="John Doe" email="john@doe.com" age=42
+name="John Doe" email="john@doe.com" age=43
+)");
+    //clang-format on
+}
+
+TEST_CASE("nested", "[reflection]")
+{
+    auto ts = TestStruct { 1, 2.0f, 3.0, "hello", { "John Doe", "john@doe.com", 42 } };
+    auto const result = Reflection::Inspect(ts);
+    CHECK(result == R"(a=1 b=2 c=3 d="hello" e=name="John Doe" email="john@doe.com" age=42)");
 }
