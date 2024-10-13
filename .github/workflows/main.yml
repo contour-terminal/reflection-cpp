@@ -1,0 +1,68 @@
+name: Build and Test
+
+on:
+  merge_group:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+
+  # FIXME: We're having a linker error wrt. Catch2 on Windows with MSVC
+  # windows-msvc:
+  #   name: "Windows - MSVC"
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install dependencies
+  #       run: choco install ninja
+  #     - name: configure
+  #       run: cmake --preset windows-cl-release
+  #     - name: build
+  #       run: cmake --build --preset windows-cl-release
+  #     - name: test
+  #       run: ctest --preset windows-cl-release -VV
+
+  ubuntu24-clang:
+    name: "Ubuntu Linux - Clang ${{ matrix.clang_version }}"
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        clang_version: [17, 18]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.clang_version }}
+      - name: Install ninja
+        run: sudo apt-get install ninja-build
+      - name: configure
+        run: cmake --preset linux-clang-release
+      - name: build
+        run: cmake --build --preset linux-clang-release
+      - name: test
+        run: ctest --preset linux-clang-release -VV
+
+  ubuntu24-gcc:
+    name: "Ubuntu Linux - GCC ${{ matrix.gcc_version }}"
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        gcc_version: [13, 14]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get install ninja-build g++-${{ matrix.gcc_version }}
+      - name: configure
+        run: cmake --preset linux-gcc-release
+      - name: build
+        run: cmake --build --preset linux-gcc-release
+      - name: test
+        run: ctest --preset linux-gcc-release -VV
