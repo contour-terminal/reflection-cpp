@@ -194,7 +194,7 @@ inline constexpr decltype(auto) ToTuple(T&& t) noexcept
 }
 
 template <class T>
-struct WrappedPoinnter final
+struct WrappedPointer final
 {
     const T* ptr;
 };
@@ -203,7 +203,7 @@ template <size_t N, class T>
 constexpr auto GetElementPtrAt(T&& t) noexcept
 {
     auto& p = get<N>(ToTuple(t));
-    return WrappedPoinnter<std::remove_cvref_t<decltype(p)>> { &p };
+    return WrappedPointer<std::remove_cvref_t<decltype(p)>> { &p };
 }
 
 namespace detail
