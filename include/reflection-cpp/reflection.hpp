@@ -446,7 +446,9 @@ std::string Inspect(Object const& object)
             }
             else
             {
+                str += '{';
                 str += Inspect(arg);
+                str += '}';
             }
         };
         if (!str.empty())
@@ -472,3 +474,12 @@ std::string Inspect(std::vector<Object> const& objects)
     return str;
 }
 } // namespace Reflection
+
+template <std::size_t N>
+struct std::formatter<Reflection::StringLiteral<N>>: std::formatter<std::string_view>
+{
+    auto format(Reflection::StringLiteral<N> const& value, auto& ctx) const
+    {
+        return formatter<std::string_view>::format(value.sv(), ctx);
+    }
+};
