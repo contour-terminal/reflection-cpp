@@ -160,17 +160,54 @@ inline constexpr auto CountMembers = [] {
 
 constexpr size_t MaxReflectionMemerCount = 5; // should go as high as 256, I guess?
 
+
+/**
+
+elisp functions to fill the ToTuple function
+
+(defun create_params (n)
+       (let ((res "") (counter 0))
+           (while (< counter n)
+               (setq res (concat res "p" (number-to-string counter)))
+               (if (< counter (- n 1))
+                   (setq res (concat res ", "))
+                )
+               (setq counter (1+ counter)))
+       res)
+)
+
+(defun for_one_value (n)
+       (setq params (create_params n))
+       (concat "    else if constexpr (N == " (number-to-string n) ")\n"
+           "    {\n"
+           "        auto& [" params "] = t;\n"
+           "        return std::tie(" params ");\n"
+           "    }\n"
+       )
+)
+
+(defun fill_ToTuple()
+    (interactive)
+  (let ((total 1))
+    (while (<= total 20)
+        (insert (for_one_value total))
+      (setq total (+ total 1))
+    total))
+)
+
+**/
+
 template <class T, size_t N = CountMembers<T>>
     requires(N <= MaxReflectionMemerCount)
 inline constexpr decltype(auto) ToTuple(T&& t) noexcept
 {
     if constexpr (N == 0)
         return std::tuple {};
-
+    //clang-format off
     else if constexpr (N == 1)
     {
-        auto& [p] = t;
-        return std::tie(p);
+        auto& [p0] = t;
+        return std::tie(p0);
     }
     else if constexpr (N == 2)
     {
@@ -192,6 +229,82 @@ inline constexpr decltype(auto) ToTuple(T&& t) noexcept
         auto& [p0, p1, p2, p3, p4] = t;
         return std::tie(p0, p1, p2, p3, p4);
     }
+    else if constexpr (N == 6)
+    {
+        auto& [p0, p1, p2, p3, p4, p5] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5);
+    }
+    else if constexpr (N == 7)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6);
+    }
+    else if constexpr (N == 8)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7);
+    }
+    else if constexpr (N == 9)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8);
+    }
+    else if constexpr (N == 10)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
+    }
+    else if constexpr (N == 11)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10);
+    }
+    else if constexpr (N == 12)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11);
+    }
+    else if constexpr (N == 13)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12);
+    }
+    else if constexpr (N == 14)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13);
+    }
+    else if constexpr (N == 15)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14);
+    }
+    else if constexpr (N == 16)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15);
+    }
+    else if constexpr (N == 17)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16);
+    }
+    else if constexpr (N == 18)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17);
+    }
+    else if constexpr (N == 19)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18);
+    }
+    else if constexpr (N == 20)
+    {
+        auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19] = t;
+        return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19);
+    }
+    //clang-format on
 }
 
 template <class T>
