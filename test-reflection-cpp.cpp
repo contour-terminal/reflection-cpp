@@ -66,5 +66,5 @@ TEST_CASE("nested", "[reflection]")
 {
     auto ts = TestStruct { 1, 2.0f, 3.0, "hello", { "John Doe", "john@doe.com", 42 } };
     auto const result = Reflection::Inspect(ts);
-    CHECK(result == R"(a=1 b=2 c=3 d="hello" e=name="John Doe" email="john@doe.com" age=42)");
+    CHECK(result == R"(a=1 b=2 c=3 d="hello" e={name="John Doe" email="john@doe.com" age=42})");
 }
