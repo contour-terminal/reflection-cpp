@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(reflection-cpp VERSION 1.4.2 LANGUAGES CXX)
+project(reflection-cpp VERSION 0.0.1 LANGUAGES CXX)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -9,8 +9,8 @@ include(ThirdParties)
 include(ClangTidy)
 include(PedanticCompiler)
 
-set(boxed_cpp_HEADERS
-    ${PROJECT_SOURCE_DIR}/include/reflection-cpp/boxed.hpp
+set(reflection_cpp_HEADERS
+    ${PROJECT_SOURCE_DIR}/include/reflection-cpp/reflection.hpp
 )
 add_library(reflection-cpp INTERFACE)
 add_library(reflection-cpp::reflection-cpp ALIAS reflection-cpp)
@@ -32,7 +32,7 @@ configure_package_config_file(reflection-cpp-config.cmake.in
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/reflection-cpp
 )
 
-install(FILES ${boxed_cpp_HEADERS}
+install(FILES ${reflection_cpp_HEADERS}
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/reflection-cpp
 )
 install(TARGETS reflection-cpp
@@ -52,8 +52,8 @@ install(EXPORT reflection-cpp-targets
 # ---------------------------------------------------------------------------
 # unit tests
 
-option(BOXED_TESTING "Enables building of unittests for reflection-cpp [default: ON]" ON)
-if(BOXED_TESTING)
+option(REFLECTION_TESTING "Enables building of unittests for reflection-cpp [default: ON]" ON)
+if(REFLECTION_TESTING)
     find_package(Catch2 3.4.0 QUIET)
     if(NOT Catch2_FOUND)
         ThirdPartiesAdd_Catch2()
@@ -66,4 +66,4 @@ if(BOXED_TESTING)
     target_link_libraries(test-reflection-cpp reflection-cpp Catch2::Catch2 Catch2::Catch2WithMain)
     add_test(test-reflection-cpp ./test-reflection-cpp)
 endif()
-message(STATUS "[reflection-cpp] Compile unit tests: ${BOXED_TESTING}")
+message(STATUS "[reflection-cpp] Compile unit tests: ${REFLECTION_TESTING}")
