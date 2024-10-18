@@ -52,7 +52,7 @@ install(EXPORT reflection-cpp-targets
 # ---------------------------------------------------------------------------
 # unit tests
 
-option(REFLECTION_TESTING "Enables building of unittests for reflection-cpp [default: ON]" ON)
+option(REFLECTION_TESTING "Enables building of unittests for reflection-cpp [default: OFF]" OFF)
 if(REFLECTION_TESTING)
     find_package(Catch2 3.4.0 QUIET)
     if(NOT Catch2_FOUND)
