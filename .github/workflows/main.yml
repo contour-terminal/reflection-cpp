@@ -40,10 +40,10 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.clang_version }}
-      - name: Install ninja
-        run: sudo apt-get install ninja-build
+      - name: Install ninja and catch2
+        run: sudo apt-get install ninja-build catch2
       - name: configure
-        run: cmake --preset linux-clang-release
+        run: cmake --preset linux-clang-release  -D REFLECTION_TESTING=ON
       - name: build
         run: cmake --build --preset linux-clang-release
       - name: test
@@ -59,9 +59,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: sudo apt-get install ninja-build g++-${{ matrix.gcc_version }}
+        run: sudo apt-get install ninja-build catch2 g++-${{ matrix.gcc_version }}
       - name: configure
-        run: cmake --preset linux-gcc-release
+        run: cmake --preset linux-gcc-release -D REFLECTION_TESTING=ON
       - name: build
         run: cmake --build --preset linux-gcc-release
       - name: test
