@@ -145,7 +145,6 @@ namespace detail
 } // namespace detail
 
 template <class T, class... Args>
-    requires(std::is_aggregate_v<std::remove_cvref_t<T>>)
 inline constexpr auto CountMembers = [] {
     using V = std::remove_cvref_t<T>;
     if constexpr (requires { V { Args {}..., detail::any_t {} }; })

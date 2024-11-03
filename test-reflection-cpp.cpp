@@ -65,6 +65,7 @@ name="John Doe" email="john@doe.com" age=43
 TEST_CASE("nested", "[reflection]")
 {
     auto ts = TestStruct { 1, 2.0f, 3.0, "hello", { "John Doe", "john@doe.com", 42 } };
+    CHECK(Reflection::CountMembers<std::remove_reference_t<decltype(ts)>> == 5);
     auto const result = Reflection::Inspect(ts);
     CHECK(result == R"(a=1 b=2 c=3 d="hello" e={name="John Doe" email="john@doe.com" age=42})");
 }
