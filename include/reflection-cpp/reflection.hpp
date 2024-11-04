@@ -705,6 +705,13 @@ decltype(auto) CallOnMembers(Object const& object, Callable&& callable)
         [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
 }
 
+template <typename Object, typename Callable>
+decltype(auto) CallOnMembers(Object& object, Callable&& callable)
+{
+    template_for<0, Reflection::CountMembers<Object>>(
+        [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
+}
+
 template <typename Object, typename Callable, typename ResultType>
 constexpr ResultType FoldMembers(Object& object, ResultType initialValue, Callable const& callable)
 {
