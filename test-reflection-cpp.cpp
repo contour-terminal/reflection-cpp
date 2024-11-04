@@ -77,3 +77,19 @@ TEST_CASE("FoldType", "[reflection]")
     // clang-format on
     CHECK(result == 5);
 }
+
+struct S
+{
+    int a {};
+    int b {};
+    int c {};
+};
+
+TEST_CASE("FoldMembers", "[reflection]")
+{
+    auto const s = S { 1, 2, 3 };
+    auto const result = Reflection::FoldMembers(
+        s, 0, [](auto&& /*name*/, auto&& memberValue, auto&& accum) { return accum + memberValue; });
+
+    CHECK(result == 6);
+}
