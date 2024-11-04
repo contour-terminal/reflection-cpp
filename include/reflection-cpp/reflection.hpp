@@ -639,6 +639,22 @@ constexpr void template_for(F&& f)
     }(std::make_integer_sequence<t, E - B> {});
 }
 
+template <typename Object, typename Callable, typename ResultType>
+constexpr ResultType FoldType(ResultType initialValue, Callable const& callable)
+{
+    // clang-format off
+    ResultType result = initialValue;
+    template_for<0, Reflection::CountMembers<Object>>(
+        [&]<size_t I>() {
+            result = callable(Reflection::MemberNameOf<I, Object>,
+                              std::get<I>(Reflection::ToTuple(Object {})),
+                              result);
+        }
+    );
+    // clang-format on
+    return result;
+}
+
 template <auto P>
     requires(std::is_member_pointer_v<decltype(P)>)
 consteval std::string_view GetName()
@@ -687,6 +703,20 @@ decltype(auto) CallOnMembers(Object const& object, Callable&& callable)
 {
     template_for<0, Reflection::CountMembers<Object>>(
         [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
+}
+
+template <typename Object, typename Callable, typename ResultType>
+constexpr ResultType FoldMembers(Object& object, ResultType initialValue, Callable const& callable)
+{
+    // clang-format off
+    ResultType result = initialValue;
+    template_for<0, Reflection::CountMembers<Object>>([&]<size_t I>() {
+        result = callable(Reflection::MemberNameOf<I, Object>, 
+                          std::get<I>(Reflection::ToTuple(object)), 
+                          result);
+    });
+    return result;
+    // clang-format on
 }
 
 template <typename Object>
