@@ -639,6 +639,13 @@ constexpr void template_for(F&& f)
     }(std::make_integer_sequence<t, E - B> {});
 }
 
+/// Folds over the members of a type
+///
+/// @param initialValue The initial value to fold with
+/// @param callable     The callable to fold with. The parameters are the member name,
+///                     the member's default value and the current result of the fold.
+///
+/// @return The result of the fold
 template <typename Object, typename Callable, typename ResultType>
 constexpr ResultType FoldType(ResultType initialValue, Callable const& callable)
 {
@@ -712,6 +719,14 @@ void CallOnMembers(Object& object, Callable&& callable)
         [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
 }
 
+/// Folds over the members of an object
+///
+/// @param object       The object to fold over
+/// @param initialValue The initial value to fold with
+/// @param callable     The callable to fold with. The parameters are the member name,
+///                     the member value and the current result of the fold.
+///
+/// @return The result of the fold
 template <typename Object, typename Callable, typename ResultType>
 constexpr ResultType FoldMembers(Object const& object, ResultType initialValue, Callable const& callable)
 {
