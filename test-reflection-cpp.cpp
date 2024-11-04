@@ -68,10 +68,10 @@ TEST_CASE("nested", "[reflection]")
     CHECK(result == R"(a=1 b=2 c=3 d="hello" e={name="John Doe" email="john@doe.com" age=42})");
 }
 
-TEST_CASE("FoldType", "[reflection]")
+TEST_CASE("FoldMembers.type", "[reflection]")
 {
     // clang-format off
-    auto const result = Reflection::FoldType<TestStruct>(0, [](auto&& /*name*/, auto&& /*value*/, auto&& result) {
+    auto const result = Reflection::FoldMembers<TestStruct>(0, [](auto&& /*name*/, auto&& /*value*/, auto&& result) {
         return result + 1;
     });
     // clang-format on
@@ -85,7 +85,7 @@ struct S
     int c {};
 };
 
-TEST_CASE("FoldMembers", "[reflection]")
+TEST_CASE("FoldMembers.value", "[reflection]")
 {
     auto const s = S { 1, 2, 3 };
     auto const result = Reflection::FoldMembers(

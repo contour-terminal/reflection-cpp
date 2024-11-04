@@ -639,29 +639,6 @@ constexpr void template_for(F&& f)
     }(std::make_integer_sequence<t, E - B> {});
 }
 
-/// Folds over the members of a type
-///
-/// @param initialValue The initial value to fold with
-/// @param callable     The callable to fold with. The parameters are the member name,
-///                     the member's default value and the current result of the fold.
-///
-/// @return The result of the fold
-template <typename Object, typename Callable, typename ResultType>
-constexpr ResultType FoldType(ResultType initialValue, Callable const& callable)
-{
-    // clang-format off
-    ResultType result = initialValue;
-    template_for<0, Reflection::CountMembers<Object>>(
-        [&]<size_t I>() {
-            result = callable(Reflection::MemberNameOf<I, Object>,
-                              std::get<I>(Reflection::ToTuple(Object {})),
-                              result);
-        }
-    );
-    // clang-format on
-    return result;
-}
-
 template <auto P>
     requires(std::is_member_pointer_v<decltype(P)>)
 consteval std::string_view GetName()
@@ -717,6 +694,29 @@ void CallOnMembers(Object& object, Callable&& callable)
 {
     template_for<0, Reflection::CountMembers<Object>>(
         [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
+}
+
+/// Folds over the members of a type without an object of it.
+///
+/// @param initialValue The initial value to fold with
+/// @param callable     The callable to fold with. The parameters are the member name,
+///                     the member's default value and the current result of the fold.
+///
+/// @return The result of the fold
+template <typename Object, typename Callable, typename ResultType>
+constexpr ResultType FoldMembers(ResultType initialValue, Callable const& callable)
+{
+    // clang-format off
+    ResultType result = initialValue;
+    template_for<0, Reflection::CountMembers<Object>>(
+        [&]<size_t I>() {
+            result = callable(Reflection::MemberNameOf<I, Object>,
+                              std::get<I>(Reflection::ToTuple(Object {})),
+                              result);
+        }
+    );
+    // clang-format on
+    return result;
 }
 
 /// Folds over the members of an object
