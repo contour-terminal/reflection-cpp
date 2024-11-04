@@ -67,3 +67,13 @@ TEST_CASE("nested", "[reflection]")
     auto const result = Reflection::Inspect(ts);
     CHECK(result == R"(a=1 b=2 c=3 d="hello" e={name="John Doe" email="john@doe.com" age=42})");
 }
+
+TEST_CASE("FoldType", "[reflection]")
+{
+    // clang-format off
+    auto const result = Reflection::FoldType<TestStruct>(0, [](auto&& /*name*/, auto&& /*value*/, auto&& result) {
+        return result + 1;
+    });
+    // clang-format on
+    CHECK(result == 5);
+}
