@@ -713,7 +713,7 @@ void CallOnMembers(Object& object, Callable&& callable)
 }
 
 template <typename Object, typename Callable, typename ResultType>
-constexpr ResultType FoldMembers(Object& object, ResultType initialValue, Callable const& callable)
+constexpr ResultType FoldMembers(Object const& object, ResultType initialValue, Callable const& callable)
 {
     // clang-format off
     ResultType result = initialValue;
