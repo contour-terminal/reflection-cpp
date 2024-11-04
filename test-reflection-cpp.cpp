@@ -59,7 +59,6 @@ TEST_CASE("vector", "[reflection]")
     CHECK(result == R"(name="John Doe" email="john@doe.com" age=42
 name="John Doe" email="john@doe.com" age=43
 )");
-    //clang-format on
 }
 
 TEST_CASE("nested", "[reflection]")
