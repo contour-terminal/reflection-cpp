@@ -202,7 +202,7 @@ inline constexpr decltype(auto) ToTuple(T&& t) noexcept
 {
     if constexpr (N == 0)
         return std::tuple {};
-    //clang-format off
+    // clang-format off
     else if constexpr (N == 1)
     {
         auto& [p0] = t;
@@ -453,7 +453,7 @@ inline constexpr decltype(auto) ToTuple(T&& t) noexcept
         auto& [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31, p32, p33, p34, p35, p36, p37, p38, p39, p40, p41, p42, p43, p44, p45, p46, p47, p48, p49] = t;
         return std::tie(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31, p32, p33, p34, p35, p36, p37, p38, p39, p40, p41, p42, p43, p44, p45, p46, p47, p48, p49);
     }
-    //clang-format on
+    // clang-format on
 }
 
 template <class T>
@@ -683,10 +683,62 @@ consteval auto GetName()
 }
 
 template <typename Object, typename Callable>
-decltype(auto) CallOnMembers(Object const& object, Callable&& callable)
+void CallOnMembers(Object const& object, Callable&& callable)
 {
     template_for<0, Reflection::CountMembers<Object>>(
         [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
+}
+
+template <typename Object, typename Callable>
+void CallOnMembers(Object& object, Callable&& callable)
+{
+    template_for<0, Reflection::CountMembers<Object>>(
+        [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
+}
+
+/// Folds over the members of a type without an object of it.
+///
+/// @param initialValue The initial value to fold with
+/// @param callable     The callable to fold with. The parameters are the member name,
+///                     the member's default value and the current result of the fold.
+///
+/// @return The result of the fold
+template <typename Object, typename Callable, typename ResultType>
+constexpr ResultType FoldMembers(ResultType initialValue, Callable const& callable)
+{
+    // clang-format off
+    ResultType result = initialValue;
+    template_for<0, Reflection::CountMembers<Object>>(
+        [&]<size_t I>() {
+            result = callable(Reflection::MemberNameOf<I, Object>,
+                              std::get<I>(Reflection::ToTuple(Object {})),
+                              result);
+        }
+    );
+    // clang-format on
+    return result;
+}
+
+/// Folds over the members of an object
+///
+/// @param object       The object to fold over
+/// @param initialValue The initial value to fold with
+/// @param callable     The callable to fold with. The parameters are the member name,
+///                     the member value and the current result of the fold.
+///
+/// @return The result of the fold
+template <typename Object, typename Callable, typename ResultType>
+constexpr ResultType FoldMembers(Object const& object, ResultType initialValue, Callable const& callable)
+{
+    // clang-format off
+    ResultType result = initialValue;
+    template_for<0, Reflection::CountMembers<Object>>([&]<size_t I>() {
+        result = callable(Reflection::MemberNameOf<I, Object>, 
+                          std::get<I>(Reflection::ToTuple(object)), 
+                          result);
+    });
+    return result;
+    // clang-format on
 }
 
 template <typename Object>
