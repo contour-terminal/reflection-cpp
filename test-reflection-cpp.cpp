@@ -71,11 +71,11 @@ TEST_CASE("nested", "[reflection]")
 TEST_CASE("FoldMembers.type", "[reflection]")
 {
     // clang-format off
-    auto const result = Reflection::FoldMembers<TestStruct>(0, [](auto&& /*name*/, auto&& /*value*/, auto&& result) {
-        return result + 1;
+    auto const result = Reflection::FoldMembers<TestStruct>(size_t{0}, []<size_t I, typename T>(auto&& result) {
+        return result + I;
     });
     // clang-format on
-    CHECK(result == 5);
+    CHECK(result == 0 + 0 + 1 + 2 + 3 + 4);
 }
 
 struct S
@@ -92,4 +92,13 @@ TEST_CASE("FoldMembers.value", "[reflection]")
         s, 0, [](auto&& /*name*/, auto&& memberValue, auto&& accum) { return accum + memberValue; });
 
     CHECK(result == 6);
+}
+
+TEST_CASE("MemberTypeOf", "[reflection]")
+{
+    static_assert(std::same_as<Reflection::MemberTypeOf<0, TestStruct>, int>);
+    static_assert(std::same_as<Reflection::MemberTypeOf<1, TestStruct>, float>);
+    static_assert(std::same_as<Reflection::MemberTypeOf<2, TestStruct>, double>);
+    static_assert(std::same_as<Reflection::MemberTypeOf<3, TestStruct>, std::string>);
+    static_assert(std::same_as<Reflection::MemberTypeOf<4, TestStruct>, Person>);
 }
