@@ -456,17 +456,27 @@ inline constexpr decltype(auto) ToTuple(T&& t) noexcept
     // clang-format on
 }
 
+template <auto I, typename T>
+constexpr decltype(auto) GetMemberAt(T&& t)
+{
+    return std::get<I>(ToTuple(std::forward<T>(t)));
+}
+
+/// Represents the type of the member at index I of type Object
+template <auto I, typename Object>
+using MemberTypeOf = std::remove_cvref_t<decltype(std::get<I>(ToTuple(Object {})))>;
+
 template <class T>
 struct WrappedPointer final
 {
-    const T* ptr;
+    T* pointer;
 };
 
 template <size_t N, class T>
 constexpr auto GetElementPtrAt(T&& t) noexcept
 {
-    auto& p = get<N>(ToTuple(t));
-    return WrappedPointer<std::remove_cvref_t<decltype(p)>> { &p };
+    auto& p = GetMemberAt<N>(std::forward<T>(t));
+    return WrappedPointer<std::remove_reference_t<decltype(p)>> { &p };
 }
 
 namespace detail
@@ -673,7 +683,7 @@ consteval auto GetName()
     std::string_view str = REFLECTION_PRETTY_FUNCTION;
     str = str.substr(str.rfind("::") + 2);
     str = str.substr(0, str.find('>'));
-    return str.substr(str.find('<')+1);
+    return str.substr(str.find('<') + 1);
 #else
     constexpr auto MarkerStart = std::string_view { "E = " };
     std::string_view str = REFLECTION_PRETTY_FUNCTION;
@@ -683,18 +693,32 @@ consteval auto GetName()
 #endif
 }
 
+/// Calls a callable on each member of an object with the index of the member as the first argument.
+/// and the member's default-constructed value as the second argument.
 template <typename Object, typename Callable>
-void CallOnMembers(Object const& object, Callable&& callable)
+constexpr void EnumerateMembers(Object& object, Callable&& callable)
 {
-    template_for<0, Reflection::CountMembers<Object>>(
-        [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
+    template_for<0, CountMembers<Object>>([&]<auto I>() { callable.template operator()<I>(GetMemberAt<I>(object)); });
+}
+
+/// Calls a callable on each member of an object with the index and member's type as template arguments.
+template <typename Object, typename Callable>
+constexpr void EnumerateMembers(Callable&& callable)
+{
+    // clang-format off
+    template_for<0, CountMembers<Object>>(
+        [&]<auto I>() { 
+            callable.template operator()<I, MemberTypeOf<I, Object>>();
+        }
+    );
+    // clang-format on
 }
 
 template <typename Object, typename Callable>
 void CallOnMembers(Object& object, Callable&& callable)
 {
-    template_for<0, Reflection::CountMembers<Object>>(
-        [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
+    EnumerateMembers<Object>(object,
+                             [&]<size_t I, typename T>(T&& value) { callable(MemberNameOf<I, Object>, value); });
 }
 
 /// Folds over the members of a type without an object of it.
@@ -709,11 +733,9 @@ constexpr ResultType FoldMembers(ResultType initialValue, Callable const& callab
 {
     // clang-format off
     ResultType result = initialValue;
-    template_for<0, Reflection::CountMembers<Object>>(
-        [&]<size_t I>() {
-            result = callable(Reflection::MemberNameOf<I, Object>,
-                              std::get<I>(Reflection::ToTuple(Object {})),
-                              result);
+    EnumerateMembers<Object>(
+        [&]<size_t I, typename MemberType>() {
+            result = callable.template operator()<I, MemberTypeOf<I, Object>>(result);
         }
     );
     // clang-format on
@@ -729,15 +751,16 @@ constexpr ResultType FoldMembers(ResultType initialValue, Callable const& callab
 ///
 /// @return The result of the fold
 template <typename Object, typename Callable, typename ResultType>
-constexpr ResultType FoldMembers(Object const& object, ResultType initialValue, Callable const& callable)
+constexpr ResultType FoldMembers(Object& object, ResultType initialValue, Callable const& callable)
 {
     // clang-format off
     ResultType result = initialValue;
-    template_for<0, Reflection::CountMembers<Object>>([&]<size_t I>() {
-        result = callable(Reflection::MemberNameOf<I, Object>, 
-                          std::get<I>(Reflection::ToTuple(object)), 
-                          result);
-    });
+    EnumerateMembers<Object>(
+        object,
+        [&]<size_t I, typename MemberType>(MemberType&& value) {
+            result = callable(MemberNameOf<I, Object>, value, result);
+        }
+    );
     return result;
     // clang-format on
 }
