@@ -672,7 +672,8 @@ consteval auto GetName()
 #if defined(_MSC_VER) && !defined(__clang__)
     std::string_view str = REFLECTION_PRETTY_FUNCTION;
     str = str.substr(str.rfind("::") + 2);
-    return str.substr(0, str.find('>'));
+    str = str.substr(0, str.find('>'));
+    return str.substr(str.find('<')+1);
 #else
     constexpr auto MarkerStart = std::string_view { "E = " };
     std::string_view str = REFLECTION_PRETTY_FUNCTION;

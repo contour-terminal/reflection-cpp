@@ -12,19 +12,27 @@ on:
 jobs:
 
   # FIXME: We're having a linker error wrt. Catch2 on Windows with MSVC
-  # windows-msvc:
-  #   name: "Windows - MSVC"
-  #   runs-on: windows-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Install dependencies
-  #       run: choco install ninja
-  #     - name: configure
-  #       run: cmake --preset windows-cl-release
-  #     - name: build
-  #       run: cmake --build --preset windows-cl-release
-  #     - name: test
-  #       run: ctest --preset windows-cl-release -VV
+  windows-msvc:
+    name: "Windows - MSVC"
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: choco install ninja
+      - name: "vcpkg: Install dependencies"
+        uses: lukka/run-vcpkg@v11.1
+        id: runvcpkg
+        with:
+          vcpkgDirectory: ${{ runner.workspace }}/vcpkg
+          vcpkgGitCommitId: 80403036a665cb8fcc1a1b3e17593d20b03b2489
+      - name: configure
+        run: cmake --preset windows-cl-release -D REFLECTION_TESTING=ON
+        env:
+          VCPKG_ROOT: "${{ runner.workspace }}/vcpkg"
+      - name: build
+        run: cmake --build --preset windows-cl-release
+      - name: test
+        run: ctest --preset windows-cl-release -VV
 
   ubuntu24-clang:
     name: "Ubuntu Linux - Clang ${{ matrix.clang_version }}"
@@ -43,7 +51,7 @@ jobs:
       - name: Install ninja and catch2
         run: sudo apt-get install ninja-build catch2
       - name: configure
-        run: cmake --preset linux-clang-release  -D REFLECTION_TESTING=ON
+        run: cmake --preset linux-clang-release -D REFLECTION_TESTING=ON
       - name: build
         run: cmake --build --preset linux-clang-release
       - name: test
