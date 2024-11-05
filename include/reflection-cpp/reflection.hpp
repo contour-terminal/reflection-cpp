@@ -697,6 +697,15 @@ void CallOnMembers(Object& object, Callable&& callable)
         [&]<auto I>() { callable(Reflection::MemberNameOf<I, Object>, std::get<I>(Reflection::ToTuple(object))); });
 }
 
+/// Calls a callable on each member of an object with the index of the member as the first argument.
+/// and the member's default-constructed value as the second argument.
+template <typename Object, typename Callable>
+void CallOnMembersWithIndex(Object& object, Callable&& callable)
+{
+    template_for<0, Reflection::CountMembers<Object>>(
+        [&]<auto I>() { callable(I, std::get<I>(Reflection::ToTuple(object))); });
+}
+
 /// Folds over the members of a type without an object of it.
 ///
 /// @param initialValue The initial value to fold with
