@@ -68,6 +68,56 @@ TEST_CASE("nested", "[reflection]")
     CHECK(result == R"(a=1 b=2 c=3 d="hello" e={name="John Doe" email="john@doe.com" age=42})");
 }
 
+TEST_CASE("EnumerateMembers.index_and_value", "[reflection]")
+{
+    auto ps = Person { "John Doe", "john@doe.com", 42 };
+    Reflection::EnumerateMembers(ps, []<size_t I>(auto&& value) {
+        if constexpr (I == 0)
+        {
+            CHECK(value == "John Doe");
+        }
+        else if constexpr (I == 1)
+        {
+            CHECK(value == "john@doe.com");
+        }
+        else if constexpr (I == 2)
+        {
+            CHECK(value == 42);
+        }
+    });
+}
+
+TEST_CASE("EnumerateMembers.index_and_type", "[reflection]")
+{
+    Reflection::EnumerateMembers<Person>([]<auto I, typename T>() {
+        if constexpr (I == 0)
+        {
+            static_assert(std::same_as<T,std::string_view>);
+        }
+        if constexpr (I == 1)
+        {
+            static_assert(std::same_as<T,std::string>);
+        }
+        if constexpr (I == 2)
+        {
+            static_assert(std::same_as<T,int>);
+        }
+    });
+}
+
+TEST_CASE("CallOnMembers", "[reflection]")
+{
+    auto ps = Person { "John Doe", "john@doe.com", 42 };
+    std::string result;
+    Reflection::CallOnMembers(ps, [&result](auto&& name, auto&& value) {
+        result += name;
+        result += "=";
+        result += std::format("{}", value);
+        result += " ";
+    });
+    CHECK(result == R"(name=John Doe email=john@doe.com age=42 )");
+}
+
 TEST_CASE("FoldMembers.type", "[reflection]")
 {
     // clang-format off
