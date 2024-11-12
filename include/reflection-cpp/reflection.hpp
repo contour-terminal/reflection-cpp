@@ -811,6 +811,25 @@ std::string Inspect(std::vector<Object> const& objects)
     }
     return str;
 }
+
+template <typename Object, typename Callback>
+void CollectDifferences(const Object& lhs, const Object& rhs, Callback&& callback)
+{
+    template_for<0, CountMembers<Object>>([&]<auto I>() {
+        if constexpr (std::equality_comparable<MemberTypeOf<I, Object>>)
+        {
+            if (GetMemberAt<I>(lhs) != GetMemberAt<I>(rhs))
+            {
+                callback(MemberNameOf<I, Object>, GetMemberAt<I>(lhs), GetMemberAt<I>(rhs));
+            }
+        }
+        else
+        {
+            CollectDifferences(GetMemberAt<I>(lhs), GetMemberAt<I>(rhs), callback);
+        }
+    });
+}
+
 } // namespace Reflection
 
 template <std::size_t N>
