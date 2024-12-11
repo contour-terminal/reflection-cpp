@@ -146,7 +146,7 @@ namespace detail
 
 template <class T, class... Args>
     requires(std::is_aggregate_v<std::remove_cvref_t<T>>)
-inline constexpr auto CountMembers = [] {
+inline constexpr auto CountMembers = []() constexpr {
     using V = std::remove_cvref_t<T>;
     if constexpr (requires { V { Args {}..., detail::any_t {} }; })
     {
@@ -463,8 +463,20 @@ constexpr decltype(auto) GetMemberAt(T&& t)
 }
 
 /// Represents the type of the member at index I of type Object
+// template <auto I, typename Object>
+// using MemberTypeOf = std::remove_cvref_t<decltype(std::get<I>(ToTuple(Object {})))>;
+
 template <auto I, typename Object>
-using MemberTypeOf = std::remove_cvref_t<decltype(std::get<I>(ToTuple(Object {})))>;
+using MemberTypeOf = decltype([]() constexpr {
+    if constexpr (CountMembers<Object> == 1)
+    {
+        // Work around the problem of trying to construct a get<0>(tuple) with only a single field member.
+        auto const [p0] = Object {};
+        return p0;
+    }
+    else
+        return std::get<I>(ToTuple(Object {}));
+}());
 
 template <class T>
 struct WrappedPointer final
