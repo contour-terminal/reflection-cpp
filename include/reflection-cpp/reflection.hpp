@@ -715,7 +715,7 @@ constexpr void EnumerateMembers(Callable&& callable)
 }
 
 template <typename Object, typename Callable>
-    requires std::same_as<void, std::invoke_result_t<Callable, std::string, MemberTypeOf<1, Object>>>
+    requires std::same_as<void, std::invoke_result_t<Callable, std::string, MemberTypeOf<0, Object>>>
 void CallOnMembers(Object& object, Callable&& callable)
 {
     EnumerateMembers<Object>(object,
@@ -752,7 +752,7 @@ constexpr ResultType FoldMembers(ResultType initialValue, Callable const& callab
 ///
 /// @return The result of the fold
 template <typename Object, typename Callable, typename ResultType>
-    requires std::same_as<ResultType, std::invoke_result_t<Callable, std::string, MemberTypeOf<1, Object>, ResultType>>
+    requires std::same_as<ResultType, std::invoke_result_t<Callable, std::string, MemberTypeOf<0, Object>, ResultType>>
 constexpr ResultType FoldMembers(Object& object, ResultType initialValue, Callable const& callable)
 {
     // clang-format off
