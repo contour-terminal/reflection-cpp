@@ -101,32 +101,11 @@ inline constexpr auto JoinStringLiterals = detail::join<Strs...>();
 
 namespace detail
 {
-    struct any_t final
+    // This helper-struct is only used by CountMembers to count the number of members in an aggregate type
+    struct AnyType final
     {
-#if defined(__clang__)
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Weverything"
         template <class T>
-            requires(!std::same_as<T, const char*> && !std::same_as<T, std::nullptr_t>)
         [[maybe_unused]] constexpr operator T() const;
-    #pragma clang diagnostic pop
-#elif defined(_MSC_VER)
-        template <class T>
-            requires(!std::same_as<T, const char*> && !std::same_as<T, std::nullptr_t>)
-        [[maybe_unused]] constexpr operator T() const;
-#else
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wmissing-declarations"
-        template <class T>
-            requires(!std::same_as<T, const char*> && !std::same_as<T, std::nullptr_t>)
-        [[maybe_unused]] constexpr operator T() const;
-    #pragma GCC diagnostic pop
-#endif
-
-        [[maybe_unused]] constexpr operator std::string_view() const
-        {
-            return {};
-        }
     };
 
     template <auto Ptr>
@@ -142,21 +121,22 @@ namespace detail
         // return std::source_location::current().function_name();
         return REFLECTION_PRETTY_FUNCTION;
     }
+
+    template <class AggregateType, class... Args>
+        requires(std::is_aggregate_v<AggregateType>)
+    constexpr inline auto CountMembers = []() constexpr {
+        if constexpr (requires { AggregateType { Args {}..., AnyType {} }; })
+            return CountMembers<AggregateType, Args..., AnyType>;
+        else
+            return sizeof...(Args);
+    }();
+
 } // namespace detail
 
-template <class T, class... Args>
+// Count the number of members in an aggregate type.
+template <class T>
     requires(std::is_aggregate_v<std::remove_cvref_t<T>>)
-inline constexpr auto CountMembers = [] {
-    using V = std::remove_cvref_t<T>;
-    if constexpr (requires { V { Args {}..., detail::any_t {} }; })
-    {
-        return CountMembers<V, Args..., detail::any_t>;
-    }
-    else
-    {
-        return sizeof...(Args);
-    }
-}();
+constexpr inline auto CountMembers = detail::CountMembers<std::remove_cvref_t<T>>;
 
 constexpr size_t MaxReflectionMemerCount = 50; // should go as high as 256, I guess? for now 30 is enough
 
