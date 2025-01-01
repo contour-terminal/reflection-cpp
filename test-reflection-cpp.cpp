@@ -203,6 +203,23 @@ TEST_CASE("Compare.simple", "[reflection]")
     CHECK(diff == "id: 1 != 2\nname: John Doe != Jane Doe\nage: 42 != 43\n");
 }
 
+
+
+TEST_CASE("Compare.simple_with_indexing", "[reflection]")
+{
+    auto const r1 = Record { .id = 1, .name = "John Doe", .age = 42 };
+    auto const r2 = Record { .id = 2, .name = "John Doe", .age = 42 };
+
+    size_t check = -1;
+    auto differenceCallback = [&](size_t ind, auto const& lhs, auto const& rhs) {
+        check = ind;
+    };
+
+    Reflection::CollectDifferences(r1, r2, differenceCallback);
+    CHECK(check == 0);
+}
+
+
 struct Table
 {
     Record first;

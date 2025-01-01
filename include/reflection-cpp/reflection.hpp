@@ -812,6 +812,25 @@ void CollectDifferences(const Object& lhs, const Object& rhs, Callback&& callbac
     });
 }
 
+template <typename Object, typename Callback>
+requires std::same_as<void, std::invoke_result_t<Callback, size_t, MemberTypeOf<0, Object>, MemberTypeOf<0, Object>>>
+void CollectDifferences(const Object& lhs, const Object& rhs, Callback&& callback)
+{
+    template_for<0, CountMembers<Object>>([&]<auto I>() {
+        if constexpr (std::equality_comparable<MemberTypeOf<I, Object>>)
+        {
+            if (GetMemberAt<I>(lhs) != GetMemberAt<I>(rhs))
+            {
+                callback(I, GetMemberAt<I>(lhs), GetMemberAt<I>(rhs));
+            }
+        }
+        else
+        {
+            CollectDifferences(GetMemberAt<I>(lhs), GetMemberAt<I>(rhs), callback);
+        }
+    });
+}
+
 } // namespace Reflection
 
 template <std::size_t N>
