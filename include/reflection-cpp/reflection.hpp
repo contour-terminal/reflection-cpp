@@ -77,7 +77,7 @@ namespace detail
     };
 
     template <const std::string_view&... Strs>
-    inline constexpr std::string_view join()
+    constexpr std::string_view join()
     {
         constexpr auto joined_arr = []() {
             constexpr size_t len = (Strs.size() + ... + 0);
@@ -178,14 +178,14 @@ elisp functions to fill the ToTuple function
 
 template <class T, size_t N = CountMembers<T>>
     requires(N <= MaxReflectionMemerCount)
-inline constexpr decltype(auto) ToTuple(T&& t) noexcept
+constexpr decltype(auto) ToTuple(T&& t) noexcept
 {
     if constexpr (N == 0)
         return std::tuple {};
     // clang-format off
     else if constexpr (N == 1)
     {
-        auto& [p0] = t;
+        auto& [p0] = std::forward<T>(t); // TODO: We need to fix the gen script and apply that to all the cases below
         return std::tie(p0);
     }
     else if constexpr (N == 2)
@@ -795,7 +795,7 @@ std::string Inspect(std::vector<Object> const& objects)
 }
 
 template <typename Object, typename Callback>
-void CollectDifferences(const Object& lhs, const Object& rhs, Callback&& callback)
+void CollectDifferences(const Object& lhs, const Object& rhs, Callback const& callback)
 {
     template_for<0, CountMembers<Object>>([&]<auto I>() {
         if constexpr (std::equality_comparable<MemberTypeOf<I, Object>>)
@@ -814,7 +814,7 @@ void CollectDifferences(const Object& lhs, const Object& rhs, Callback&& callbac
 
 template <typename Object, typename Callback>
 requires std::same_as<void, std::invoke_result_t<Callback, size_t, MemberTypeOf<0, Object>, MemberTypeOf<0, Object>>>
-void CollectDifferences(const Object& lhs, const Object& rhs, Callback&& callback)
+void CollectDifferences(const Object& lhs, const Object& rhs, Callback const& callback)
 {
     template_for<0, CountMembers<Object>>([&]<auto I>() {
         if constexpr (std::equality_comparable<MemberTypeOf<I, Object>>)
