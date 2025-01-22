@@ -3,7 +3,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <iostream>
 #include <string>
 #include <string_view>
 
@@ -23,7 +22,7 @@ struct TestStruct
     Person e;
 };
 
-enum Color
+enum Color : std::uint8_t
 {
     Red,
     Green,
@@ -71,7 +70,7 @@ TEST_CASE("core", "[reflection]")
     auto s = SingleValueRecord { 42 };
     CHECK(Reflection::Inspect(s) == "value=42");
 
-    auto p = Person { "John Doe", "john@doe.com", 42 };
+    auto p = Person { .name = "John Doe", .email = "john@doe.com", .age = 42 };
     auto const result = Reflection::Inspect(p);
     CHECK(result == R"(name="John Doe" email="john@doe.com" age=42)");
 }
@@ -89,14 +88,20 @@ name="John Doe" email="john@doe.com" age=43
 
 TEST_CASE("nested", "[reflection]")
 {
-    auto ts = TestStruct { 1, 2.0f, 3.0, "hello", { "John Doe", "john@doe.com", 42 } };
+    auto ts = TestStruct {
+        .a = 1,
+        .b = 2.0f,
+        .c = 3.0,
+        .d = "hello",
+        .e = { .name = "John Doe", .email = "john@doe.com", .age = 42 },
+    };
     auto const result = Reflection::Inspect(ts);
     CHECK(result == R"(a=1 b=2 c=3 d="hello" e={name="John Doe" email="john@doe.com" age=42})");
 }
 
 TEST_CASE("EnumerateMembers.index_and_value", "[reflection]")
 {
-    auto ps = Person { "John Doe", "john@doe.com", 42 };
+    auto ps = Person { .name = "John Doe", .email = "john@doe.com", .age = 42 };
     Reflection::EnumerateMembers(ps, []<size_t I>(auto&& value) {
         if constexpr (I == 0)
         {
@@ -118,22 +123,22 @@ TEST_CASE("EnumerateMembers.index_and_type", "[reflection]")
     Reflection::EnumerateMembers<Person>([]<auto I, typename T>() {
         if constexpr (I == 0)
         {
-            static_assert(std::same_as<T,std::string_view>);
+            static_assert(std::same_as<T, std::string_view>);
         }
         if constexpr (I == 1)
         {
-            static_assert(std::same_as<T,std::string>);
+            static_assert(std::same_as<T, std::string>);
         }
         if constexpr (I == 2)
         {
-            static_assert(std::same_as<T,int>);
+            static_assert(std::same_as<T, int>);
         }
     });
 }
 
 TEST_CASE("CallOnMembers", "[reflection]")
 {
-    auto ps = Person { "John Doe", "john@doe.com", 42 };
+    auto ps = Person { .name = "John Doe", .email = "john@doe.com", .age = 42 };
     std::string result;
     Reflection::CallOnMembers(ps, [&result](auto&& name, auto&& value) {
         result += name;
@@ -163,7 +168,7 @@ struct S
 
 TEST_CASE("FoldMembers.value", "[reflection]")
 {
-    auto const s = S { 1, 2, 3 };
+    auto const s = S { .a = 1, .b = 2, .c = 3 };
     auto const result = Reflection::FoldMembers(
         s, 0, [](auto&& /*name*/, auto&& memberValue, auto&& accum) { return accum + memberValue; });
 
@@ -203,22 +208,19 @@ TEST_CASE("Compare.simple", "[reflection]")
     CHECK(diff == "id: 1 != 2\nname: John Doe != Jane Doe\nage: 42 != 43\n");
 }
 
-
-
 TEST_CASE("Compare.simple_with_indexing", "[reflection]")
 {
     auto const r1 = Record { .id = 1, .name = "John Doe", .age = 42 };
     auto const r2 = Record { .id = 2, .name = "John Doe", .age = 42 };
 
-    size_t check = -1;
-    auto differenceCallback = [&](size_t ind, auto const& lhs, auto const& rhs) {
-        check = ind;
+    auto check = static_cast<size_t>(-1);
+    auto differenceCallback = [&](size_t index, auto const& /*lhs*/, auto const& /*rhs*/) {
+        check = index;
     };
 
     Reflection::CollectDifferences(r1, r2, differenceCallback);
     CHECK(check == 0);
 }
-
 
 struct Table
 {
