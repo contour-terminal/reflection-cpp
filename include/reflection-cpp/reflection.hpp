@@ -125,6 +125,7 @@ namespace detail
     template <class AggregateType, class... Args>
         requires(std::is_aggregate_v<AggregateType>)
     constexpr inline auto CountMembers = []() constexpr {
+        // NOLINTNEXTLINE(modernize-use-designated-initializers)
         if constexpr (requires { AggregateType { Args {}..., AnyType {} }; })
             return CountMembers<AggregateType, Args..., AnyType>;
         else
