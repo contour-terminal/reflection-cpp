@@ -604,9 +604,11 @@ namespace detail
     template <typename... Ts, typename F>
     constexpr void enumerate_types(F&& f)
     {
-        [&f]<auto... Is>(std::index_sequence<Is...>) {
+        [&f]<auto... Is>(std::index_sequence<Is...>)
+        {
             (f.template operator()<Ts, Is>(), ...);
-        }(std::index_sequence_for<Ts...> {});
+        }
+        (std::index_sequence_for<Ts...> {});
     }
 
     template <auto... Xs, typename F>
@@ -625,9 +627,22 @@ constexpr void template_for(F&& f)
 {
     using t = std::common_type_t<decltype(B), decltype(E)>;
 
-    [&f]<auto... Xs>(std::integer_sequence<t, Xs...>) {
+    [&f]<auto... Xs>(std::integer_sequence<t, Xs...>)
+    {
         detail::for_values<(B + Xs)...>(f);
-    }(std::make_integer_sequence<t, E - B> {});
+    }
+    (std::make_integer_sequence<t, E - B> {});
+}
+
+template <typename ElementMask, typename F>
+constexpr void template_for(F&& f)
+{
+    using t = typename ElementMask::value_type;
+    [&f]<auto... Xs>(std::integer_sequence<t, Xs...>)
+    {
+        Reflection::detail::for_values<(Xs)...>(f);
+    }
+    (ElementMask {});
 }
 
 template <auto P>
@@ -674,6 +689,22 @@ consteval auto GetName()
 #endif
 }
 
+/// Calls a callable on members of an object specified with ElementMask sequence with the index of the member as the
+/// first argument. and the member's default-constructed value as the second argument.
+template <typename ElementMask, typename Object, typename Callable>
+constexpr void EnumerateMembers(Object& object, Callable&& callable)
+{
+    template_for<ElementMask>([&]<auto I>() { callable.template operator()<I>(GetMemberAt<I>(object)); });
+}
+
+/// Calls a callable on members of an object specified with ElementMask sequence with the index and member's type as
+/// template arguments.
+template <typename ElementMask, typename Object, typename Callable>
+constexpr void EnumerateMembers(Callable&& callable)
+{
+    template_for<ElementMask>([&]<auto I>() { callable.template operator()<I, MemberTypeOf<I, Object>>(); });
+}
+
 /// Calls a callable on each member of an object with the index of the member as the first argument.
 /// and the member's default-constructed value as the second argument.
 template <typename Object, typename Callable>
@@ -688,7 +719,7 @@ constexpr void EnumerateMembers(Callable&& callable)
 {
     // clang-format off
     template_for<0, CountMembers<Object>>(
-        [&]<auto I>() { 
+        [&]<auto I>() {
             callable.template operator()<I, MemberTypeOf<I, Object>>();
         }
     );
@@ -699,7 +730,7 @@ template <typename Object, typename Callable>
     requires std::same_as<void, std::invoke_result_t<Callable, std::string, MemberTypeOf<0, Object>>>
 void CallOnMembers(Object& object, Callable&& callable)
 {
-    EnumerateMembers<Object>(object,
+    EnumerateMembers(object,
                              [&]<size_t I, typename T>(T&& value) { callable(MemberNameOf<I, Object>, value); });
 }
 
@@ -738,7 +769,7 @@ constexpr ResultType FoldMembers(Object& object, ResultType initialValue, Callab
 {
     // clang-format off
     ResultType result = initialValue;
-    EnumerateMembers<Object>(
+    EnumerateMembers(
         object,
         [&]<size_t I, typename MemberType>(MemberType&& value) {
             result = callable(MemberNameOf<I, Object>, value, result);
