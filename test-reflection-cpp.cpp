@@ -5,6 +5,7 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 
 struct Person
 {
@@ -136,6 +137,25 @@ TEST_CASE("EnumerateMembers.index_and_type", "[reflection]")
     });
 }
 
+TEST_CASE("EnumerateMembers.partial", "[reflection]")
+{
+    Reflection::EnumerateMembers<std::integer_sequence<size_t, 0, 2>, Person>([]<auto I, typename T>() {
+        if constexpr (I == 0)
+        {
+            static_assert(std::same_as<T, std::string_view>);
+        }
+        if constexpr (I == 1)
+        {
+            static_assert(false);
+        }
+        if constexpr (I == 2)
+        {
+            static_assert(std::same_as<T, int>);
+        }
+    });
+}
+
+
 TEST_CASE("CallOnMembers", "[reflection]")
 {
     auto ps = Person { .name = "John Doe", .email = "john@doe.com", .age = 42 };
@@ -246,4 +266,11 @@ TEST_CASE("Compare.nested", "[reflection]")
     CHECK(diff.empty());
     Reflection::CollectDifferences(t1, t3, differenceCallback);
     CHECK(diff == "id: 2 != 3\n");
+}
+
+TEST_CASE("TemplateFor over sequence", "[refleciton]")
+{
+    std::string result {};
+    Reflection::template_for<std::integer_sequence<size_t, 3, 2, 1>>([&]<size_t I>(){result += std::to_string(I);});
+    CHECK(result == "321");
 }
