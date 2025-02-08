@@ -537,6 +537,24 @@ constexpr auto TypeNameOf = [] {
 
 namespace detail
 {
+    template <typename T>
+    struct MemberClassTypeHelper;
+
+    template <typename M, typename T>
+    struct MemberClassTypeHelper<M T::*>
+    {
+        using type = std::remove_cvref_t<T>;
+    };
+} // namespace detail
+
+/// Represents the class type of a member pointer
+///
+/// @tparam P The member pointer, e.g. &MyClass::member
+template <auto P>
+using MemberClassType = typename detail::MemberClassTypeHelper<decltype(P)>::type;
+
+namespace detail
+{
     template <class T, size_t... I>
     [[nodiscard]] constexpr auto MemberNamesImpl(std::index_sequence<I...>)
     {
@@ -641,7 +659,6 @@ constexpr void template_for(F&& f)
 
 namespace detail
 {
-
     template <auto P>
         requires(std::is_member_pointer_v<decltype(P)>)
     consteval std::string_view GetName()
@@ -690,6 +707,23 @@ namespace detail
 /// Gets the name of a member or function pointer
 template <auto V>
 constexpr std::string_view NameOf = detail::GetName<V>();
+
+namespace detail
+{
+    // private helper for implementing MemberIndexOf<P>
+    template <auto P, size_t... I>
+    consteval size_t MemberIndexHelperImpl(std::index_sequence<I...>)
+    {
+        return (((NameOf<P> == MemberNames<MemberClassType<P>>[I]) ? I : 0) + ...);
+    }
+} // namespace detail
+
+/// Gets the index of a member pointer in the member list of its class
+///
+/// @tparam P The member pointer, e.g. &MyClass::member
+template <auto P>
+constexpr size_t MemberIndexOf =
+    detail::MemberIndexHelperImpl<P>(std::make_index_sequence<CountMembers<MemberClassType<P>>> {});
 
 /// Calls a callable on members of an object specified with ElementMask sequence with the index of the member as the
 /// first argument. and the member's default-constructed value as the second argument.
