@@ -35,6 +35,13 @@ struct SingleValueRecord
     int value;
 };
 
+TEST_CASE("MemberIndex", "[reflection]")
+{
+    static_assert(Reflection::MemberIndexOf<&Person::name> == 0);
+    static_assert(Reflection::MemberIndexOf<&Person::email> == 1);
+    static_assert(Reflection::MemberIndexOf<&Person::age> == 2);
+}
+
 TEST_CASE("TypeNameOf", "[reflection]")
 {
     CHECK(Reflection::TypeNameOf<int> == "int");
