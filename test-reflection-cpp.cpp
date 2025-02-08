@@ -35,18 +35,25 @@ struct SingleValueRecord
     int value;
 };
 
-TEST_CASE("GetName", "[reflection]")
+TEST_CASE("TypeNameOf", "[reflection]")
 {
-    auto const enumValue = Reflection::GetName<Color::Red>();
+    CHECK(Reflection::TypeNameOf<int> == "int");
+    CHECK(Reflection::TypeNameOf<Person> == "Person");
+    CHECK(Reflection::TypeNameOf<std::optional<float>> == "std::optional<float>");
+}
+
+TEST_CASE("NameOf", "[reflection]")
+{
+    auto const enumValue = Reflection::NameOf<Color::Red>;
     CHECK(enumValue == "Red");
 
-    auto const enumValue2 = Reflection::GetName<Color::Green>();
+    auto const enumValue2 = Reflection::NameOf<Color::Green>;
     CHECK(enumValue2 == "Green");
 
-    auto const memberName1 = Reflection::GetName<&Person::email>();
+    auto const memberName1 = Reflection::NameOf<&Person::email>;
     CHECK(memberName1 == "email");
 
-    auto const singleValueField = Reflection::GetName<&SingleValueRecord::value>();
+    auto const singleValueField = Reflection::NameOf<&SingleValueRecord::value>;
     CHECK(singleValueField == "value");
 }
 

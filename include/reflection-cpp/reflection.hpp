@@ -522,7 +522,7 @@ inline constexpr auto MemberNameOf = []() constexpr {
 }();
 
 template <class T>
-constexpr auto TypeName = [] {
+constexpr auto TypeNameOf = [] {
     constexpr std::string_view name = detail::MangledName<T>();
     constexpr auto begin = name.find(detail::reflect_type::end);
     constexpr auto tmp = name.substr(0, begin);
@@ -589,7 +589,7 @@ namespace detail
     consteval std::string_view func_name_msvc()
     {
         std::string_view str = REFLECTION_PRETTY_FUNCTION;
-        str = str.substr(str.rfind(TypeName<T>) + TypeName<T>.size());
+        str = str.substr(str.rfind(TypeNameOf<T>) + TypeNameOf<T>.size());
         str = str.substr(str.find("::") + 2);
         return str.substr(0, str.find('('));
     }
@@ -604,11 +604,9 @@ namespace detail
     template <typename... Ts, typename F>
     constexpr void enumerate_types(F&& f)
     {
-        [&f]<auto... Is>(std::index_sequence<Is...>)
-        {
+        [&f]<auto... Is>(std::index_sequence<Is...>) {
             (f.template operator()<Ts, Is>(), ...);
-        }
-        (std::index_sequence_for<Ts...> {});
+        }(std::index_sequence_for<Ts...> {});
     }
 
     template <auto... Xs, typename F>
@@ -627,67 +625,71 @@ constexpr void template_for(F&& f)
 {
     using t = std::common_type_t<decltype(B), decltype(E)>;
 
-    [&f]<auto... Xs>(std::integer_sequence<t, Xs...>)
-    {
+    [&f]<auto... Xs>(std::integer_sequence<t, Xs...>) {
         detail::for_values<(B + Xs)...>(f);
-    }
-    (std::make_integer_sequence<t, E - B> {});
+    }(std::make_integer_sequence<t, E - B> {});
 }
 
 template <typename ElementMask, typename F>
 constexpr void template_for(F&& f)
 {
     using t = typename ElementMask::value_type;
-    [&f]<auto... Xs>(std::integer_sequence<t, Xs...>)
-    {
+    [&f]<auto... Xs>(std::integer_sequence<t, Xs...>) {
         Reflection::detail::for_values<(Xs)...>(f);
-    }
-    (ElementMask {});
+    }(ElementMask {});
 }
 
-template <auto P>
-    requires(std::is_member_pointer_v<decltype(P)>)
-consteval std::string_view GetName()
+namespace detail
 {
-#if defined(_MSC_VER) && !defined(__clang__)
-    if constexpr (std::is_member_object_pointer_v<decltype(P)>)
-    {
-        using T = detail::remove_member_pointer<std::decay_t<decltype(P)>>::type;
-        constexpr auto p = P;
-        return detail::get_name_msvc<T, &(detail::External<T>.*p)>();
-    }
-    else
-    {
-        using T = detail::remove_member_pointer<std::decay_t<decltype(P)>>::type;
-        return detail::func_name_msvc<T, P>();
-    }
-#else
-    // TODO: Use std::source_location when deprecating clang 14
-    // std::string_view str = std::source_location::current().function_name();
-    std::string_view str = REFLECTION_PRETTY_FUNCTION;
-    str = str.substr(str.find('&') + 1);
-    str = str.substr(0, str.find(detail::pretty_function_tail));
-    return str.substr(str.rfind("::") + 2);
-#endif
-}
 
-template <auto E>
-    requires(std::is_enum_v<decltype(E)>)
-consteval auto GetName()
-{
+    template <auto P>
+        requires(std::is_member_pointer_v<decltype(P)>)
+    consteval std::string_view GetName()
+    {
 #if defined(_MSC_VER) && !defined(__clang__)
-    std::string_view str = REFLECTION_PRETTY_FUNCTION;
-    str = str.substr(str.rfind("::") + 2);
-    str = str.substr(0, str.find('>'));
-    return str.substr(str.find('<') + 1);
+        if constexpr (std::is_member_object_pointer_v<decltype(P)>)
+        {
+            using T = detail::remove_member_pointer<std::decay_t<decltype(P)>>::type;
+            constexpr auto p = P;
+            return detail::get_name_msvc<T, &(detail::External<T>.*p)>();
+        }
+        else
+        {
+            using T = detail::remove_member_pointer<std::decay_t<decltype(P)>>::type;
+            return detail::func_name_msvc<T, P>();
+        }
 #else
-    constexpr auto MarkerStart = std::string_view { "E = " };
-    std::string_view str = REFLECTION_PRETTY_FUNCTION;
-    str = str.substr(str.rfind(MarkerStart) + MarkerStart.size());
-    str = str.substr(0, str.find(']'));
-    return str;
+        // TODO: Use std::source_location when deprecating clang 14
+        // std::string_view str = std::source_location::current().function_name();
+        std::string_view str = REFLECTION_PRETTY_FUNCTION;
+        str = str.substr(str.find('&') + 1);
+        str = str.substr(0, str.find(detail::pretty_function_tail));
+        return str.substr(str.rfind("::") + 2);
 #endif
-}
+    }
+
+    template <auto E>
+        requires(std::is_enum_v<decltype(E)>)
+    consteval auto GetName()
+    {
+#if defined(_MSC_VER) && !defined(__clang__)
+        std::string_view str = REFLECTION_PRETTY_FUNCTION;
+        str = str.substr(str.rfind("::") + 2);
+        str = str.substr(0, str.find('>'));
+        return str.substr(str.find('<') + 1);
+#else
+        constexpr auto MarkerStart = std::string_view { "E = " };
+        std::string_view str = REFLECTION_PRETTY_FUNCTION;
+        str = str.substr(str.rfind(MarkerStart) + MarkerStart.size());
+        str = str.substr(0, str.find(']'));
+        return str;
+#endif
+    }
+} // namespace detail
+
+/// Gets the name of a member or function pointer
+template <auto V>
+constexpr std::string_view NameOf = detail::GetName<V>();
 
 /// Calls a callable on members of an object specified with ElementMask sequence with the index of the member as the
 /// first argument. and the member's default-constructed value as the second argument.
@@ -730,8 +732,7 @@ template <typename Object, typename Callable>
     requires std::same_as<void, std::invoke_result_t<Callable, std::string, MemberTypeOf<0, Object>>>
 void CallOnMembers(Object& object, Callable&& callable)
 {
-    EnumerateMembers(object,
-                             [&]<size_t I, typename T>(T&& value) { callable(MemberNameOf<I, Object>, value); });
+    EnumerateMembers(object, [&]<size_t I, typename T>(T&& value) { callable(MemberNameOf<I, Object>, value); });
 }
 
 /// Folds over the members of a type without an object of it.
