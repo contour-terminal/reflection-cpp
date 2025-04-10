@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(reflection-cpp VERSION 0.0.1 LANGUAGES CXX)
+project(reflection-cpp VERSION 0.2.0 LANGUAGES CXX)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
