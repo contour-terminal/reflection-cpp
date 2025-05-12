@@ -1264,10 +1264,16 @@ constexpr void EnumerateMembers(Callable&& callable)
 }
 
 template <typename Object, typename Callable>
-    requires std::same_as<void, std::invoke_result_t<Callable, std::string, MemberTypeOf<0, Object>>>
+    requires std::is_invocable_v<Callable, std::string, MemberTypeOf<0, Object>>
 void CallOnMembers(Object& object, Callable&& callable)
 {
     EnumerateMembers(object, [&]<size_t I, typename T>(T&& value) { callable(MemberNameOf<I, Object>, value); });
+}
+
+template <typename Object, typename Callable>
+void CallOnMembersWithoutName(Object& object, Callable&& callable)
+{
+  EnumerateMembers(object, [&]<size_t I, typename T>(T&& value) { callable.template operator()<I, T>(value); });
 }
 
 /// Folds over the members of a type without an object of it.
