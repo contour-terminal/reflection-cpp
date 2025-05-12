@@ -78,6 +78,7 @@ TEST_CASE("single value record", "[reflection]")
         CHECK(name == "value");
         CHECK(value == 42);
     });
+
 }
 
 TEST_CASE("core", "[reflection]")
@@ -181,6 +182,12 @@ TEST_CASE("CallOnMembers", "[reflection]")
         result += " ";
     });
     CHECK(result == R"(name=John Doe email=john@doe.com age=42 )");
+
+    std::string resultAnother;
+    Reflection::CallOnMembersWithoutName(ps, [&resultAnother]<size_t I, typename FieldType>(FieldType const& value) {
+        resultAnother += std::format("{}", value);
+    });
+    CHECK(resultAnother == R"(John Doejohn@doe.com42)");
 }
 
 TEST_CASE("FoldMembers.type", "[reflection]")
