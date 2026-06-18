@@ -139,7 +139,7 @@ template <class T>
     requires(std::is_aggregate_v<std::remove_cvref_t<T>>)
 constexpr inline auto CountMembers = detail::CountMembers<std::remove_cvref_t<T>>;
 
-constexpr size_t MaxReflectionMemerCount = 150;
+constexpr size_t MaxReflectionMemberCount = 150;
 
 /**
 
@@ -178,7 +178,7 @@ elisp functions to fill the ToTuple function
 **/
 
 template <class T, size_t N = CountMembers<T>>
-    requires(N <= MaxReflectionMemerCount)
+    requires(N <= MaxReflectionMemberCount)
 constexpr decltype(auto) ToTuple(T&& t) noexcept
 {
     if constexpr (N == 0)
