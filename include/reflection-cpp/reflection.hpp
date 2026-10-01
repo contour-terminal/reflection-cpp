@@ -33,6 +33,9 @@
 namespace Reflection
 {
 
+/// A string usable as a template argument, e.g. `template <StringLiteral Name> struct Tagged;`
+///
+/// N is the size of the string literal it is created from, including the terminating null character.
 template <size_t N>
 struct StringLiteral
 {
@@ -105,7 +108,9 @@ namespace detail
     }
 } // namespace detail
 
-// Helper to get the value out
+/// Concatenates strings at compile time into a single std::string_view.
+///
+/// @tparam Strs The strings to join, each one a std::string_view with static storage duration
 template <std::string_view const&... Strs>
 inline constexpr auto JoinStringLiterals = detail::join<Strs...>();
 
@@ -220,7 +225,9 @@ namespace detail
 #endif
 } // namespace detail
 
-// Count the number of members in an aggregate type.
+/// The number of members of an aggregate type.
+///
+/// The members may be of types without a default constructor.
 template <class T>
     requires(std::is_aggregate_v<std::remove_cvref_t<T>>)
 constexpr inline auto CountMembers = detail::CountMembers<std::remove_cvref_t<T>>;
@@ -1049,16 +1056,18 @@ constexpr decltype(auto) GetMemberAt(T&& t)
     return std::get<I>(ToTuple(std::forward<T>(t)));
 }
 
-/// Represents the type of the member at index I of type Object
+/// Represents the type of the member at index I of type Object, without reference or cv-qualifiers
 template <auto I, typename Object>
 using MemberTypeOf = std::remove_cvref_t<decltype(std::get<I>(ToTuple(std::declval<Object&>())))>;
 
+/// Wraps a pointer, to pass the address of a member as a template argument.
 template <class T>
 struct WrappedPointer final
 {
     T* pointer;
 };
 
+/// Gets the address of the member at index N of an aggregate.
 template <size_t N, class T>
 constexpr auto GetElementPtrAt(T&& t) noexcept
 {
@@ -1146,11 +1155,16 @@ namespace detail
     };
 } // namespace detail
 
+/// The name of the member at index N of the aggregate type T, as a std::string_view.
 template <auto N, class T>
 inline constexpr auto MemberNameOf = []() constexpr {
     return detail::MemberNameOfImpl<N, T>::stripped_literal;
 }();
 
+/// The name of the type T, including its namespace, as a std::string_view.
+///
+/// The spelling of the name is the compiler's, and differs between compilers for some types,
+/// such as templates and arrays.
 template <class T>
 constexpr auto TypeNameOf = [] {
     constexpr std::string_view name = detail::MangledName<T>();
@@ -1209,6 +1223,7 @@ namespace detail
     }
 } // namespace detail
 
+/// The names of all members of the aggregate type T, as a std::array of std::string_view.
 template <class T>
 inline constexpr auto MemberNames = [] {
     return detail::MemberNamesImpl<T>(std::make_index_sequence<CountMembers<T>> {});
@@ -1278,6 +1293,7 @@ namespace detail
 
 } // namespace detail
 
+/// Calls `f<I>()` for every I in the half-open range [B, E), with I as a template argument.
 template <auto B, auto E, typename F>
 constexpr void template_for(F&& f)
 {
@@ -1288,6 +1304,9 @@ constexpr void template_for(F&& f)
     }(std::make_integer_sequence<t, E - B> {});
 }
 
+/// Calls `f<I>()` for every element I of ElementMask, in order, with I as a template argument.
+///
+/// @tparam ElementMask A std::integer_sequence listing the values to call f with
 template <typename ElementMask, typename F>
 constexpr void template_for(F&& f)
 {
@@ -1365,31 +1384,36 @@ template <auto P>
 constexpr size_t MemberIndexOf =
     detail::MemberIndexHelperImpl<P>(std::make_index_sequence<CountMembers<MemberClassType<P>>> {});
 
-/// Calls a callable on members of an object specified with ElementMask sequence with the index of the member as the
-/// first argument. and the member's default-constructed value as the second argument.
+/// Calls a callable on the members of an object selected by ElementMask, with the index of the member as
+/// template argument and a reference to the member as argument.
+///
+/// @tparam ElementMask A std::integer_sequence listing the indices of the members to visit
 template <typename ElementMask, typename Object, typename Callable>
 constexpr void EnumerateMembers(Object& object, Callable&& callable)
 {
     template_for<ElementMask>([&]<auto I>() { callable.template operator()<I>(GetMemberAt<I>(object)); });
 }
 
-/// Calls a callable on members of an object specified with ElementMask sequence with the index and member's type as
-/// template arguments.
+/// Calls a callable for the members of a type selected by ElementMask, with the index and the type of the member
+/// as template arguments. No object of the type is needed.
+///
+/// @tparam ElementMask A std::integer_sequence listing the indices of the members to visit
 template <typename ElementMask, typename Object, typename Callable>
 constexpr void EnumerateMembers(Callable&& callable)
 {
     template_for<ElementMask>([&]<auto I>() { callable.template operator()<I, MemberTypeOf<I, Object>>(); });
 }
 
-/// Calls a callable on each member of an object with the index of the member as the first argument.
-/// and the member's default-constructed value as the second argument.
+/// Calls a callable on each member of an object, with the index of the member as template argument
+/// and a reference to the member as argument.
 template <typename Object, typename Callable>
 constexpr void EnumerateMembers(Object& object, Callable&& callable)
 {
     template_for<0, CountMembers<Object>>([&]<auto I>() { callable.template operator()<I>(GetMemberAt<I>(object)); });
 }
 
-/// Calls a callable on each member of an object with the index and member's type as template arguments.
+/// Calls a callable for each member of a type, with the index and the type of the member as template arguments.
+/// No object of the type is needed.
 template <typename Object, typename Callable>
 constexpr void EnumerateMembers(Callable&& callable)
 {
@@ -1402,6 +1426,7 @@ constexpr void EnumerateMembers(Callable&& callable)
     // clang-format on
 }
 
+/// Calls a callable on each member of an object, with the name of the member and a reference to the member.
 template <typename Object, typename Callable>
     requires(CountMembers<Object> == 0) || std::is_invocable_v<Callable, std::string, MemberTypeOf<0, Object>>
 void CallOnMembers(Object& object, Callable&& callable)
@@ -1424,7 +1449,7 @@ void CallOnMembersWithoutName(Object& object, Callable&& callable)
 ///
 /// @param initialValue The initial value to fold with
 /// @param callable     The callable to fold with. The parameters are the member name,
-///                     the member's default value and the current result of the fold.
+///                     the member's type and the current result of the fold.
 ///                     The current result is passed as an rvalue, so it is moved rather than copied.
 ///
 /// @return The result of the fold
@@ -1579,6 +1604,7 @@ std::string Inspect(Object const& object)
     return str;
 }
 
+/// Creates a human readable representation of a list of objects, one object per line.
 template <typename Object>
 std::string Inspect(std::vector<Object> const& objects)
 {
