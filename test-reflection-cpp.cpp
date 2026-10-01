@@ -292,6 +292,6 @@ TEST_CASE("Compare.nested", "[reflection]")
 TEST_CASE("TemplateFor over sequence", "[refleciton]")
 {
     std::string result {};
-    Reflection::template_for<std::integer_sequence<size_t, 3, 2, 1>>([&]<size_t I>(){result += std::to_string(I);});
+    Reflection::template_for<std::integer_sequence<size_t, 3, 2, 1>>([&]<size_t I>() { result += std::to_string(I); });
     CHECK(result == "321");
 }

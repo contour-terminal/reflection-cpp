@@ -1273,7 +1273,7 @@ void CallOnMembers(Object& object, Callable&& callable)
 template <typename Object, typename Callable>
 void CallOnMembersWithoutName(Object& object, Callable&& callable)
 {
-  EnumerateMembers(object, [&]<size_t I, typename T>(T&& value) { callable.template operator()<I, T>(value); });
+    EnumerateMembers(object, [&]<size_t I, typename T>(T&& value) { callable.template operator()<I, T>(value); });
 }
 
 /// Folds over the members of a type without an object of it.
