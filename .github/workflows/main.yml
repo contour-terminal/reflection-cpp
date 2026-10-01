@@ -11,7 +11,6 @@ on:
 
 jobs:
 
-  # FIXME: We're having a linker error wrt. Catch2 on Windows with MSVC
   windows-msvc:
     name: "Windows - MSVC - C++${{ matrix.cxx_standard }}"
     runs-on: windows-latest
