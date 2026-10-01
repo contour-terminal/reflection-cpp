@@ -121,25 +121,96 @@ namespace detail
         // return std::source_location::current().function_name();
         return REFLECTION_PRETTY_FUNCTION;
     }
+} // namespace detail
 
-    template <class AggregateType, class... Args>
-        requires(std::is_aggregate_v<AggregateType>)
-    constexpr inline auto CountMembers = []() constexpr {
+constexpr size_t MaxReflectionMemerCount = 150;
+
+namespace detail
+{
+#if defined(__cpp_structured_bindings) && __cpp_structured_bindings >= 202411L
+    // A structured binding pack yields the member count directly, at constant compile-time cost.
+    //
+    // Clang provides structured binding packs as an extension before C++26, and warns about their use there.
+    #if defined(__clang__)
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wc++26-extensions"
+    #endif
+    template <class T>
+    auto CountMembersImpl(T& t)
+    {
+        [[maybe_unused]] auto& [... members] = t;
+        return std::integral_constant<size_t, sizeof...(members)> {};
+    }
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
+
+    template <class T>
+    constexpr inline size_t CountMembers = decltype(CountMembersImpl(std::declval<T&>()))::value;
+#else
+    template <class T, size_t... I>
+    consteval bool AcceptsInitializersImpl(std::index_sequence<I...> /*unused*/)
+    {
         // NOLINTNEXTLINE(modernize-use-designated-initializers)
-        if constexpr (requires { AggregateType { Args {}..., AnyType {} }; })
-            return CountMembers<AggregateType, Args..., AnyType>;
-        else
-            return sizeof...(Args);
-    }();
+        return requires { T { (static_cast<void>(I), AnyType {})... }; };
+    }
 
+    // Whether the aggregate T can be initialized from exactly N values.
+    //
+    // With N being the member count and F the position of the last member without a default constructor
+    // (0 if there is none), exactly the counts in [F, N] are accepted.
+    template <class T, size_t N>
+    constexpr inline bool AcceptsInitializers = AcceptsInitializersImpl<T>(std::make_index_sequence<N> {});
+
+    // Finds the smallest accepted initializer count, searching linearly from N.
+    template <class T, size_t N = 0>
+    consteval size_t FirstAcceptedInitializerCount()
+    {
+        if constexpr (AcceptsInitializers<T, N>)
+            return N;
+        else if constexpr (N < MaxReflectionMemerCount)
+            return FirstAcceptedInitializerCount<T, N + 1>();
+        else
+        {
+            static_assert(N < MaxReflectionMemerCount,
+                          "Reflection: unable to count the members of this aggregate type. It either has more "
+                          "than MaxReflectionMemerCount (150) members, or it has a member that cannot be "
+                          "initialized from a single value (e.g. a reference member).");
+            return 0;
+        }
+    }
+
+    // Finds the largest accepted initializer count by binary search, given that Low is accepted and High is not.
+    template <class T, size_t Low, size_t High>
+    consteval size_t LastAcceptedInitializerCount()
+    {
+        if constexpr (High - Low == 1)
+            return Low;
+        else if constexpr (AcceptsInitializers<T, Low + ((High - Low) / 2)>)
+            return LastAcceptedInitializerCount<T, Low + ((High - Low) / 2), High>();
+        else
+            return LastAcceptedInitializerCount<T, Low, Low + ((High - Low) / 2)>();
+    }
+
+    // Given that Low is accepted, doubles Step until a rejected count is found, then bisects that range.
+    template <class T, size_t Low, size_t Step = 1>
+    consteval size_t CountMembersFrom()
+    {
+        if constexpr (AcceptsInitializers<T, Low + Step>)
+            return CountMembersFrom<T, Low + Step, Step * 2>();
+        else
+            return LastAcceptedInitializerCount<T, Low, Low + Step>();
+    }
+
+    template <class T>
+    constexpr inline size_t CountMembers = CountMembersFrom<T, FirstAcceptedInitializerCount<T>()>();
+#endif
 } // namespace detail
 
 // Count the number of members in an aggregate type.
 template <class T>
     requires(std::is_aggregate_v<std::remove_cvref_t<T>>)
 constexpr inline auto CountMembers = detail::CountMembers<std::remove_cvref_t<T>>;
-
-constexpr size_t MaxReflectionMemerCount = 150;
 
 /**
 
