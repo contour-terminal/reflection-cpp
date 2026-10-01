@@ -58,6 +58,9 @@ struct WithReq2
     NoDefaultCtor b;
 };
 
+// MSVC cannot provide member names for types without external linkage.
+#if !defined(_MSC_VER) || defined(__clang__)
+
 namespace
 {
 struct InternalRecord
@@ -92,6 +95,8 @@ TEST_CASE("function local types", "[reflection]")
 
     CHECK(Reflection::Inspect(LocalRecord { .alpha = 1, .beta = "two" }) == R"(alpha=1 beta="two")");
 }
+
+#endif
 
 TEST_CASE("MemberIndex", "[reflection]")
 {

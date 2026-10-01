@@ -18,6 +18,9 @@ Reflection works on aggregates: types without user-declared constructors, privat
 Members may be of any type, including types without a default constructor. An aggregate may have up to
 150 members.
 
+With MSVC, member names are only available for types with external linkage, that is, not for types declared
+in an anonymous namespace or inside a function.
+
 ## Usage
 
 ```cpp

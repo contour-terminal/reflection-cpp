@@ -1079,12 +1079,15 @@ namespace detail
 {
 #if defined(_MSC_VER) && !defined(__clang__)
     // An object of type T that only has to exist at compile time: only the addresses of its members are used.
+    //
+    // MSVC requires T to have external linkage for this, and does not accept the alternative below either,
+    // so member names of types in anonymous namespaces or at function scope are not available with it.
     template <class T>
     extern const T External;
 #else
-    // An object that is declared but never defined, as above, is rejected by GCC and Clang for types
-    // without external linkage, as no other translation unit could define it. They accept a union holding
-    // the object as a member that is never constructed, which MSVC does not treat as a constant in turn.
+    // An object that is declared but never defined, as above, is rejected for types without external linkage,
+    // as no other translation unit could define it. A union holding the object as a member that is never
+    // constructed is a real definition, and still does not require T to be constructible.
     template <class T>
     union UninitializedStorage {
         constexpr UninitializedStorage() noexcept:
