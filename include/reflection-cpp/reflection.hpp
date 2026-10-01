@@ -3,7 +3,9 @@
 
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <format>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -18,6 +20,14 @@
     #define REFLECTION_PRETTY_FUNCTION __PRETTY_FUNCTION__
 #elif defined(_MSC_VER)
     #define REFLECTION_PRETTY_FUNCTION __FUNCSIG__
+#endif
+
+// Structured binding packs (P1061) give direct access to all members of an aggregate at once.
+// Clang provides them as an extension before C++26, and warns about their use there.
+#if defined(__cpp_structured_bindings) && __cpp_structured_bindings >= 202411L
+    #define REFLECTION_HAS_STRUCTURED_BINDING_PACKS 1
+#else
+    #define REFLECTION_HAS_STRUCTURED_BINDING_PACKS 0
 #endif
 
 namespace Reflection
@@ -121,25 +131,94 @@ namespace detail
         // return std::source_location::current().function_name();
         return REFLECTION_PRETTY_FUNCTION;
     }
+} // namespace detail
 
-    template <class AggregateType, class... Args>
-        requires(std::is_aggregate_v<AggregateType>)
-    constexpr inline auto CountMembers = []() constexpr {
+constexpr size_t MaxReflectionMemberCount = 150;
+
+namespace detail
+{
+#if REFLECTION_HAS_STRUCTURED_BINDING_PACKS
+    // A structured binding pack yields the member count directly, at constant compile-time cost.
+    #if defined(__clang__)
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wc++26-extensions"
+    #endif
+    template <class T>
+    auto CountMembersImpl(T& t)
+    {
+        [[maybe_unused]] auto& [... members] = t;
+        return std::integral_constant<size_t, sizeof...(members)> {};
+    }
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
+
+    template <class T>
+    constexpr inline size_t CountMembers = decltype(CountMembersImpl(std::declval<T&>()))::value;
+#else
+    template <class T, size_t... I>
+    consteval bool AcceptsInitializersImpl(std::index_sequence<I...> /*unused*/)
+    {
         // NOLINTNEXTLINE(modernize-use-designated-initializers)
-        if constexpr (requires { AggregateType { Args {}..., AnyType {} }; })
-            return CountMembers<AggregateType, Args..., AnyType>;
-        else
-            return sizeof...(Args);
-    }();
+        return requires { T { (static_cast<void>(I), AnyType {})... }; };
+    }
 
+    // Whether the aggregate T can be initialized from exactly N values.
+    //
+    // With N being the member count and F the position of the last member without a default constructor
+    // (0 if there is none), exactly the counts in [F, N] are accepted.
+    template <class T, size_t N>
+    constexpr inline bool AcceptsInitializers = AcceptsInitializersImpl<T>(std::make_index_sequence<N> {});
+
+    // Finds the smallest accepted initializer count, searching linearly from N.
+    template <class T, size_t N = 0>
+    consteval size_t FirstAcceptedInitializerCount()
+    {
+        if constexpr (AcceptsInitializers<T, N>)
+            return N;
+        else if constexpr (N < MaxReflectionMemberCount)
+            return FirstAcceptedInitializerCount<T, N + 1>();
+        else
+        {
+            static_assert(N < MaxReflectionMemberCount,
+                          "Reflection: unable to count the members of this aggregate type. It either has more "
+                          "than MaxReflectionMemberCount (150) members, or it has a member that cannot be "
+                          "initialized from a single value (e.g. a reference member).");
+            return 0;
+        }
+    }
+
+    // Finds the largest accepted initializer count by binary search, given that Low is accepted and High is not.
+    template <class T, size_t Low, size_t High>
+    consteval size_t LastAcceptedInitializerCount()
+    {
+        if constexpr (High - Low == 1)
+            return Low;
+        else if constexpr (AcceptsInitializers<T, Low + ((High - Low) / 2)>)
+            return LastAcceptedInitializerCount<T, Low + ((High - Low) / 2), High>();
+        else
+            return LastAcceptedInitializerCount<T, Low, Low + ((High - Low) / 2)>();
+    }
+
+    // Given that Low is accepted, doubles Step until a rejected count is found, then bisects that range.
+    template <class T, size_t Low, size_t Step = 1>
+    consteval size_t CountMembersFrom()
+    {
+        if constexpr (AcceptsInitializers<T, Low + Step>)
+            return CountMembersFrom<T, Low + Step, Step * 2>();
+        else
+            return LastAcceptedInitializerCount<T, Low, Low + Step>();
+    }
+
+    template <class T>
+    constexpr inline size_t CountMembers = CountMembersFrom<T, FirstAcceptedInitializerCount<T>()>();
+#endif
 } // namespace detail
 
 // Count the number of members in an aggregate type.
 template <class T>
     requires(std::is_aggregate_v<std::remove_cvref_t<T>>)
 constexpr inline auto CountMembers = detail::CountMembers<std::remove_cvref_t<T>>;
-
-constexpr size_t MaxReflectionMemberCount = 150;
 
 /**
 
@@ -177,10 +256,23 @@ elisp functions to fill the ToTuple function
 
 **/
 
+#if REFLECTION_HAS_STRUCTURED_BINDING_PACKS && defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wc++26-extensions"
+#endif
+
+/// Gets a tuple of references to the members of an aggregate.
+///
+/// The members are never copied: the returned tuple refers into @p t, so it must not outlive it.
+/// In particular, the result for a temporary is only valid until the end of the full expression.
 template <class T, size_t N = CountMembers<T>>
     requires(N <= MaxReflectionMemberCount)
 constexpr decltype(auto) ToTuple(T&& t) noexcept
 {
+#if REFLECTION_HAS_STRUCTURED_BINDING_PACKS
+    auto&& [... members] = std::forward<T>(t);
+    return std::tie(members...);
+#else
     if constexpr (N == 0)
         return std::tuple {};
     // clang-format off
@@ -936,8 +1028,16 @@ constexpr decltype(auto) ToTuple(T&& t) noexcept
     }
 
     // clang-format on
+#endif
 }
 
+#if REFLECTION_HAS_STRUCTURED_BINDING_PACKS && defined(__clang__)
+    #pragma clang diagnostic pop
+#endif
+
+/// Gets a reference to the member at index I of an aggregate.
+///
+/// The returned reference refers into @p t, so it must not outlive it.
 template <auto I, typename T>
 constexpr decltype(auto) GetMemberAt(T&& t)
 {
@@ -946,7 +1046,7 @@ constexpr decltype(auto) GetMemberAt(T&& t)
 
 /// Represents the type of the member at index I of type Object
 template <auto I, typename Object>
-using MemberTypeOf = std::remove_cvref_t<decltype(std::get<I>(ToTuple(Object {})))>;
+using MemberTypeOf = std::remove_cvref_t<decltype(std::get<I>(ToTuple(std::declval<Object&>())))>;
 
 template <class T>
 struct WrappedPointer final
@@ -1025,14 +1125,24 @@ inline constexpr auto MemberNameOf = []() constexpr {
 template <class T>
 constexpr auto TypeNameOf = [] {
     constexpr std::string_view name = detail::MangledName<T>();
-    constexpr auto begin = name.find(detail::reflect_type::end);
+    constexpr auto begin = name.rfind(detail::reflect_type::end);
     constexpr auto tmp = name.substr(0, begin);
 #if defined(__GNUC__) || defined(__clang__)
     return tmp.substr(tmp.rfind(detail::reflect_type::begin) + detail::reflect_type::begin.size());
 #else
     constexpr auto name_with_keyword =
         tmp.substr(tmp.rfind(detail::reflect_type::begin) + detail::reflect_type::begin.size());
-    return name_with_keyword.substr(name_with_keyword.find(' ') + 1);
+    // MSVC prefixes user-defined types with their class-key, e.g. "struct Person".
+    // Types such as "unsigned int" contain a space as well, and must be left alone.
+    for (auto const keyword: { std::string_view { "struct " },
+                               std::string_view { "class " },
+                               std::string_view { "enum " },
+                               std::string_view { "union " } })
+    {
+        if (name_with_keyword.starts_with(keyword))
+            return name_with_keyword.substr(keyword.size());
+    }
+    return name_with_keyword;
 #endif
 }();
 
@@ -1264,16 +1374,21 @@ constexpr void EnumerateMembers(Callable&& callable)
 }
 
 template <typename Object, typename Callable>
-    requires std::is_invocable_v<Callable, std::string, MemberTypeOf<0, Object>>
+    requires(CountMembers<Object> == 0) || std::is_invocable_v<Callable, std::string, MemberTypeOf<0, Object>>
 void CallOnMembers(Object& object, Callable&& callable)
 {
     EnumerateMembers(object, [&]<size_t I, typename T>(T&& value) { callable(MemberNameOf<I, Object>, value); });
 }
 
+/// Calls a callable on each member of an object, with the index of the member and its type as template arguments.
+///
+/// The type is the plain member type, without reference or cv-qualifiers, as in MemberTypeOf.
 template <typename Object, typename Callable>
 void CallOnMembersWithoutName(Object& object, Callable&& callable)
 {
-  EnumerateMembers(object, [&]<size_t I, typename T>(T&& value) { callable.template operator()<I, T>(value); });
+    EnumerateMembers(object, [&]<size_t I, typename T>(T&& value) {
+        callable.template operator()<I, std::remove_cvref_t<T>>(value);
+    });
 }
 
 /// Folds over the members of a type without an object of it.
@@ -1281,16 +1396,17 @@ void CallOnMembersWithoutName(Object& object, Callable&& callable)
 /// @param initialValue The initial value to fold with
 /// @param callable     The callable to fold with. The parameters are the member name,
 ///                     the member's default value and the current result of the fold.
+///                     The current result is passed as an rvalue, so it is moved rather than copied.
 ///
 /// @return The result of the fold
 template <typename Object, typename Callable, typename ResultType>
 constexpr ResultType FoldMembers(ResultType initialValue, Callable const& callable)
 {
     // clang-format off
-    ResultType result = initialValue;
+    ResultType result = std::move(initialValue);
     EnumerateMembers<Object>(
         [&]<size_t I, typename MemberType>() {
-            result = callable.template operator()<I, MemberTypeOf<I, Object>>(result);
+            result = callable.template operator()<I, MemberTypeOf<I, Object>>(std::move(result));
         }
     );
     // clang-format on
@@ -1303,56 +1419,134 @@ constexpr ResultType FoldMembers(ResultType initialValue, Callable const& callab
 /// @param initialValue The initial value to fold with
 /// @param callable     The callable to fold with. The parameters are the member name,
 ///                     the member value and the current result of the fold.
+///                     The current result is passed as an rvalue, so it is moved rather than copied.
 ///
 /// @return The result of the fold
 template <typename Object, typename Callable, typename ResultType>
-    requires std::same_as<ResultType, std::invoke_result_t<Callable, std::string, MemberTypeOf<0, Object>, ResultType>>
+    requires(CountMembers<Object> == 0)
+            || std::same_as<ResultType,
+                            std::invoke_result_t<Callable, std::string, MemberTypeOf<0, Object>, ResultType>>
 constexpr ResultType FoldMembers(Object& object, ResultType initialValue, Callable const& callable)
 {
     // clang-format off
-    ResultType result = initialValue;
+    ResultType result = std::move(initialValue);
     EnumerateMembers(
         object,
         [&]<size_t I, typename MemberType>(MemberType&& value) {
-            result = callable(MemberNameOf<I, Object>, value, result);
+            result = callable(MemberNameOf<I, Object>, value, std::move(result));
         }
     );
     return result;
     // clang-format on
 }
 
+namespace detail
+{
+    template <typename T>
+    concept InspectableAsString = std::is_convertible_v<T, std::string> || std::is_convertible_v<T, std::string_view>
+                                  || std::is_convertible_v<T, char const*>;
+
+    // Stand-in for std::formattable, which is only available as of C++23.
+    template <typename T>
+    concept InspectableByFormat = std::is_default_constructible_v<std::formatter<std::remove_cvref_t<T>, char>>;
+
+    template <typename T>
+    concept InspectableAsOptional = requires(T const& value) {
+        { value.has_value() } -> std::convertible_to<bool>;
+        *value;
+    };
+
+    template <typename T>
+    concept InspectableAsRange = requires(T const& value) {
+        std::begin(value);
+        std::end(value);
+    };
+
+    template <typename Object>
+    void InspectMembers(std::string& str, Object const& object);
+
+    template <typename T>
+    void InspectValue(std::string& str, T const& value)
+    {
+        if constexpr (InspectableAsString<T const&>)
+        {
+            if constexpr (std::is_pointer_v<T>)
+            {
+                if (value == nullptr)
+                {
+                    str += "null";
+                    return;
+                }
+            }
+            std::format_to(std::back_inserter(str), "\"{}\"", value);
+        }
+        else if constexpr (std::is_enum_v<T>)
+        {
+            // The unary plus promotes character-sized underlying types, to print them as numbers.
+            std::format_to(std::back_inserter(str), "{}", +static_cast<std::underlying_type_t<T>>(value));
+        }
+        else if constexpr (InspectableAsOptional<T>)
+        {
+            if (value.has_value())
+                InspectValue(str, *value);
+            else
+                str += "nullopt";
+        }
+        else if constexpr (InspectableAsRange<T>)
+        {
+            str += '[';
+            auto first = true;
+            for (auto const& element: value)
+            {
+                if (!std::exchange(first, false))
+                    str += ", ";
+                InspectValue(str, element);
+            }
+            str += ']';
+        }
+        else if constexpr (InspectableByFormat<T>)
+        {
+            std::format_to(std::back_inserter(str), "{}", value);
+        }
+        else if constexpr (std::is_aggregate_v<T>)
+        {
+            str += '{';
+            InspectMembers(str, value);
+            str += '}';
+        }
+        else
+        {
+            // A value we have no way of printing: show its type instead.
+            str += '<';
+            str += TypeNameOf<T>;
+            str += '>';
+        }
+    }
+
+    template <typename Object>
+    void InspectMembers(std::string& str, Object const& object)
+    {
+        auto first = true;
+        CallOnMembers(object, [&](std::string_view name, auto const& value) {
+            if (!std::exchange(first, false))
+                str += ' ';
+            str += name;
+            str += '=';
+            InspectValue(str, value);
+        });
+    }
+} // namespace detail
+
+/// Creates a human readable representation of an object, listing its members as `name=value`.
+///
+/// Strings are quoted, enums are shown by their numeric value, optionals by their value or `nullopt`,
+/// ranges as `[a, b]`, and nested aggregates as `{name=value ...}`. A member of any other type that
+/// cannot be formatted is shown as its type name in angle brackets.
 template <typename Object>
 std::string Inspect(Object const& object)
 {
     std::string str;
-    auto const onMember = [&str]<typename Name, typename Value>(Name&& name, Value&& value) {
-        auto const InspectValue = [&str]<typename T>(T&& arg) {
-            // clang-format off
-            if constexpr (std::is_convertible_v<T, std::string>
-                       || std::is_convertible_v<T, std::string_view>
-                       || std::is_convertible_v<T, char const*>) // clang-format on
-            {
-                str += std::format("\"{}\"", arg);
-            }
-            else if constexpr (std::is_convertible_v<T, int>) // use std::formattable when available
-            {
-                str += std::format("{}", arg);
-            }
-            else
-            {
-                str += '{';
-                str += Inspect(arg);
-                str += '}';
-            }
-        };
-        if (!str.empty())
-            str += ' ';
-        str += name;
-        str += '=';
-        InspectValue(value);
-    };
-
-    CallOnMembers(object, onMember);
+    detail::InspectMembers(str, object);
     return str;
 }
 
@@ -1362,12 +1556,14 @@ std::string Inspect(std::vector<Object> const& objects)
     std::string str;
     for (auto const& object: objects)
     {
-        str += Inspect(object);
+        detail::InspectMembers(str, object);
         str += '\n';
     }
     return str;
 }
 
+/// Calls a callback for each member that differs between two objects, with the name of the member
+/// and its value in both objects. Members that are not equality comparable are compared member-wise.
 template <typename Object, typename Callback>
 void CollectDifferences(const Object& lhs, const Object& rhs, Callback const& callback)
 {
@@ -1386,6 +1582,12 @@ void CollectDifferences(const Object& lhs, const Object& rhs, Callback const& ca
     });
 }
 
+/// Calls a callback for each member that differs between two objects, with the index of the member
+/// and its value in both objects.
+///
+/// This overload is selected for every callback that can be called with an index as first argument.
+/// That includes callbacks declaring it as `auto`: to receive the name of the member instead, declare
+/// the first parameter as `std::string_view`.
 template <typename Object, typename Callback>
     requires std::same_as<void,
                           std::invoke_result_t<Callback, size_t, MemberTypeOf<0, Object>, MemberTypeOf<0, Object>>>
