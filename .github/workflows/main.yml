@@ -13,20 +13,32 @@ jobs:
 
   # FIXME: We're having a linker error wrt. Catch2 on Windows with MSVC
   windows-msvc:
-    name: "Windows - MSVC"
+    name: "Windows - MSVC - C++${{ matrix.cxx_standard }}"
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx_standard: [20, 23]
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: choco install ninja
+      - name: Setup MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
       - name: "vcpkg: Install dependencies"
         uses: lukka/run-vcpkg@v11.1
         id: runvcpkg
         with:
           vcpkgDirectory: ${{ runner.workspace }}/vcpkg
-          vcpkgGitCommitId: 80403036a665cb8fcc1a1b3e17593d20b03b2489
+          vcpkgGitCommitId: eb2d3a3279fd019cb7733072d86900d0ad2a1aef
+      # The preset names a specific Visual Studio generator; Ninja builds with whichever version the runner provides.
       - name: configure
-        run: cmake --preset windows-cl-release -D REFLECTION_TESTING=ON
+        run: >
+          cmake --preset windows-cl-release
+          -G Ninja
+          -D CMAKE_BUILD_TYPE=Release
+          -D REFLECTION_TESTING=ON
+          -D CMAKE_CXX_STANDARD=${{ matrix.cxx_standard }}
         env:
           VCPKG_ROOT: "${{ runner.workspace }}/vcpkg"
       - name: build
@@ -34,13 +46,52 @@ jobs:
       - name: test
         run: ctest --preset windows-cl-release -VV
 
+  windows-clangcl:
+    name: "Windows - ClangCL - C++${{ matrix.cxx_standard }}"
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx_standard: [20, 23]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: choco install ninja
+      - name: Setup MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: "vcpkg: Install dependencies"
+        uses: lukka/run-vcpkg@v11.1
+        id: runvcpkg
+        with:
+          vcpkgDirectory: ${{ runner.workspace }}/vcpkg
+          vcpkgGitCommitId: eb2d3a3279fd019cb7733072d86900d0ad2a1aef
+      - name: configure
+        run: >
+          cmake --preset windows-clangcl-release
+          -D REFLECTION_TESTING=ON
+          -D CMAKE_CXX_STANDARD=${{ matrix.cxx_standard }}
+          -D CMAKE_TOOLCHAIN_FILE="${{ runner.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        env:
+          VCPKG_ROOT: "${{ runner.workspace }}/vcpkg"
+      - name: build
+        run: cmake --build --preset windows-clangcl-release
+      - name: test
+        run: ctest --preset windows-clangcl-release -VV
+
   ubuntu24-clang:
-    name: "Ubuntu Linux - Clang ${{ matrix.clang_version }}"
+    name: "Ubuntu Linux - Clang ${{ matrix.clang_version }} - C++${{ matrix.cxx_standard }}"
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        clang_version: [17, 18]
+        clang_version: [17, 18, 19, 20, 21, 22]
+        cxx_standard: [20, 23, 26]
+        exclude:
+          # Clang 17 cannot compile the C++23 <tuple> of the libstdc++ 14 found on Ubuntu 24.04
+          - clang_version: 17
+            cxx_standard: 23
+          - clang_version: 17
+            cxx_standard: 26
     steps:
       - uses: actions/checkout@v4
       - name: Install clang
@@ -51,26 +102,83 @@ jobs:
       - name: Install ninja and catch2
         run: sudo apt-get install ninja-build catch2
       - name: configure
-        run: cmake --preset linux-clang-release -D REFLECTION_TESTING=ON
+        run: >
+          cmake --preset linux-clang-release
+          -D REFLECTION_TESTING=ON
+          -D CMAKE_CXX_COMPILER=clang++-${{ matrix.clang_version }}
+          -D CMAKE_CXX_STANDARD=${{ matrix.cxx_standard }}
       - name: build
         run: cmake --build --preset linux-clang-release
       - name: test
         run: ctest --preset linux-clang-release -VV
 
   ubuntu24-gcc:
-    name: "Ubuntu Linux - GCC ${{ matrix.gcc_version }}"
+    name: "Ubuntu Linux - GCC ${{ matrix.gcc_version }} - C++${{ matrix.cxx_standard }}"
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         gcc_version: [13, 14]
+        cxx_standard: [20, 23, 26]
+        exclude:
+          # CMake has no C++26 flag for GCC 13
+          - gcc_version: 13
+            cxx_standard: 26
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: sudo apt-get install ninja-build catch2 g++-${{ matrix.gcc_version }}
       - name: configure
-        run: cmake --preset linux-gcc-release -D REFLECTION_TESTING=ON
+        run: >
+          cmake --preset linux-gcc-release
+          -D REFLECTION_TESTING=ON
+          -D CMAKE_CXX_COMPILER=g++-${{ matrix.gcc_version }}
+          -D CMAKE_CXX_STANDARD=${{ matrix.cxx_standard }}
       - name: build
         run: cmake --build --preset linux-gcc-release
       - name: test
         run: ctest --preset linux-gcc-release -VV
+
+  # GCC releases newer than what Ubuntu 24.04 packages, via the official GCC container images.
+  linux-gcc-container:
+    name: "Linux - GCC ${{ matrix.gcc_version }} - C++${{ matrix.cxx_standard }}"
+    runs-on: ubuntu-24.04
+    container: gcc:${{ matrix.gcc_version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        gcc_version: [15, 16]
+        cxx_standard: [20, 23, 26]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y cmake ninja-build
+      - name: configure
+        run: >
+          cmake --preset linux-gcc-release
+          -D REFLECTION_TESTING=ON
+          -D CMAKE_CXX_STANDARD=${{ matrix.cxx_standard }}
+      - name: build
+        run: cmake --build --preset linux-gcc-release
+      - name: test
+        run: ctest --preset linux-gcc-release -VV
+
+  macos:
+    name: "macOS - AppleClang - C++${{ matrix.cxx_standard }}"
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx_standard: [20, 23]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install ninja catch2
+      - name: configure
+        run: cmake --preset macos-release -D REFLECTION_TESTING=ON -D CMAKE_CXX_STANDARD=${{ matrix.cxx_standard }}
+      - name: build
+        run: cmake --build --preset macos-release
+      - name: test
+        run: ctest --preset macos-release -VV

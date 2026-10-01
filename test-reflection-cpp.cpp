@@ -35,6 +35,25 @@ struct SingleValueRecord
     int value;
 };
 
+struct NoDefaultCtor
+{
+    NoDefaultCtor() = delete;
+    constexpr NoDefaultCtor(int) {}
+};
+
+struct WithReq
+{
+    int a;
+    NoDefaultCtor b;
+};
+
+struct WithReq2
+{
+    int a;
+    int _a;
+    NoDefaultCtor b;
+};
+
 TEST_CASE("MemberIndex", "[reflection]")
 {
     static_assert(Reflection::MemberIndexOf<&Person::name> == 0);
@@ -64,6 +83,41 @@ TEST_CASE("NameOf", "[reflection]")
     CHECK(singleValueField == "value");
 }
 
+struct NoDefaultCtorFirst
+{
+    NoDefaultCtor a;
+    int b;
+};
+
+struct NoDefaultCtorMiddle
+{
+    int a;
+    NoDefaultCtor b;
+    int c;
+    std::string d;
+};
+
+struct NoDefaultCtorOnly
+{
+    NoDefaultCtor a;
+    NoDefaultCtor b;
+};
+
+TEST_CASE("CountMembers.NoDefaultCtor", "[reflection]")
+{
+    static_assert(Reflection::CountMembers<WithReq> == 2);
+    static_assert(Reflection::CountMembers<WithReq2> == 3);
+    static_assert(Reflection::CountMembers<NoDefaultCtorFirst> == 2);
+    static_assert(Reflection::CountMembers<NoDefaultCtorMiddle> == 4);
+    static_assert(Reflection::CountMembers<NoDefaultCtorOnly> == 2);
+
+    auto record = NoDefaultCtorMiddle { .a = 1, .b = NoDefaultCtor { 2 }, .c = 3, .d = "four" };
+    auto names = std::vector<std::string_view> {};
+    Reflection::EnumerateMembers(
+        record, [&]<size_t I, typename T>(T&&) { names.push_back(Reflection::MemberNameOf<I, NoDefaultCtorMiddle>); });
+    CHECK(names == std::vector<std::string_view> { "a", "b", "c", "d" });
+}
+
 TEST_CASE("single value record", "[reflection]")
 {
     static_assert(Reflection::CountMembers<SingleValueRecord> == 1);
@@ -78,7 +132,6 @@ TEST_CASE("single value record", "[reflection]")
         CHECK(name == "value");
         CHECK(value == 42);
     });
-
 }
 
 TEST_CASE("core", "[reflection]")
@@ -169,7 +222,6 @@ TEST_CASE("EnumerateMembers.partial", "[reflection]")
         }
     });
 }
-
 
 TEST_CASE("CallOnMembers", "[reflection]")
 {
@@ -292,6 +344,6 @@ TEST_CASE("Compare.nested", "[reflection]")
 TEST_CASE("TemplateFor over sequence", "[refleciton]")
 {
     std::string result {};
-    Reflection::template_for<std::integer_sequence<size_t, 3, 2, 1>>([&]<size_t I>(){result += std::to_string(I);});
+    Reflection::template_for<std::integer_sequence<size_t, 3, 2, 1>>([&]<size_t I>() { result += std::to_string(I); });
     CHECK(result == "321");
 }
