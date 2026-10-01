@@ -1068,7 +1068,14 @@ constexpr auto GetElementPtrAt(T&& t) noexcept
 
 namespace detail
 {
-    // Storage for an object of type T that is never constructed: only the addresses of its members are used.
+#if defined(_MSC_VER) && !defined(__clang__)
+    // An object of type T that only has to exist at compile time: only the addresses of its members are used.
+    template <class T>
+    extern const T External;
+#else
+    // An object that is declared but never defined, as above, is rejected by GCC and Clang for types
+    // without external linkage, as no other translation unit could define it. They accept a union holding
+    // the object as a member that is never constructed, which MSVC does not treat as a constant in turn.
     template <class T>
     union UninitializedStorage {
         constexpr UninitializedStorage() noexcept:
@@ -1086,6 +1093,7 @@ namespace detail
 
     template <class T>
     inline constexpr T const& External = ExternalStorage<T>.value;
+#endif
 
 #if defined(__clang__)
     #pragma clang diagnostic push
