@@ -133,7 +133,12 @@ namespace detail
     }
 } // namespace detail
 
-constexpr size_t MaxReflectionMemerCount = 150;
+/// The maximum number of members an aggregate may have to be reflected.
+constexpr size_t MaxReflectionMemberCount = 150;
+
+/// The former, misspelled name of MaxReflectionMemberCount.
+[[deprecated("Use MaxReflectionMemberCount instead")]] constexpr size_t MaxReflectionMemerCount =
+    MaxReflectionMemberCount;
 
 namespace detail
 {
@@ -176,13 +181,13 @@ namespace detail
     {
         if constexpr (AcceptsInitializers<T, N>)
             return N;
-        else if constexpr (N < MaxReflectionMemerCount)
+        else if constexpr (N < MaxReflectionMemberCount)
             return FirstAcceptedInitializerCount<T, N + 1>();
         else
         {
-            static_assert(N < MaxReflectionMemerCount,
+            static_assert(N < MaxReflectionMemberCount,
                           "Reflection: unable to count the members of this aggregate type. It either has more "
-                          "than MaxReflectionMemerCount (150) members, or it has a member that cannot be "
+                          "than MaxReflectionMemberCount (150) members, or it has a member that cannot be "
                           "initialized from a single value (e.g. a reference member).");
             return 0;
         }
@@ -266,7 +271,7 @@ elisp functions to fill the ToTuple function
 /// The members are never copied: the returned tuple refers into @p t, so it must not outlive it.
 /// In particular, the result for a temporary is only valid until the end of the full expression.
 template <class T, size_t N = CountMembers<T>>
-    requires(N <= MaxReflectionMemerCount)
+    requires(N <= MaxReflectionMemberCount)
 constexpr decltype(auto) ToTuple(T&& t) noexcept
 {
 #if REFLECTION_HAS_STRUCTURED_BINDING_PACKS
