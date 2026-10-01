@@ -23,14 +23,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: choco install ninja
+      - name: Setup MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
       - name: "vcpkg: Install dependencies"
         uses: lukka/run-vcpkg@v11.1
         id: runvcpkg
         with:
           vcpkgDirectory: ${{ runner.workspace }}/vcpkg
-          vcpkgGitCommitId: 80403036a665cb8fcc1a1b3e17593d20b03b2489
+          vcpkgGitCommitId: eb2d3a3279fd019cb7733072d86900d0ad2a1aef
+      # The preset names a specific Visual Studio generator; Ninja builds with whichever version the runner provides.
       - name: configure
-        run: cmake --preset windows-cl-release -D REFLECTION_TESTING=ON -D CMAKE_CXX_STANDARD=${{ matrix.cxx_standard }}
+        run: >
+          cmake --preset windows-cl-release
+          -G Ninja
+          -D CMAKE_BUILD_TYPE=Release
+          -D REFLECTION_TESTING=ON
+          -D CMAKE_CXX_STANDARD=${{ matrix.cxx_standard }}
         env:
           VCPKG_ROOT: "${{ runner.workspace }}/vcpkg"
       - name: build
@@ -56,7 +64,7 @@ jobs:
         id: runvcpkg
         with:
           vcpkgDirectory: ${{ runner.workspace }}/vcpkg
-          vcpkgGitCommitId: 80403036a665cb8fcc1a1b3e17593d20b03b2489
+          vcpkgGitCommitId: eb2d3a3279fd019cb7733072d86900d0ad2a1aef
       - name: configure
         run: >
           cmake --preset windows-clangcl-release
