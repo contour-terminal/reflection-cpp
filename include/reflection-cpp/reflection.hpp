@@ -133,7 +133,12 @@ namespace detail
     }
 } // namespace detail
 
+/// The maximum number of members an aggregate may have to be reflected.
 constexpr size_t MaxReflectionMemberCount = 150;
+
+/// The former, misspelled name of MaxReflectionMemberCount.
+[[deprecated("Use MaxReflectionMemberCount instead")]] constexpr size_t MaxReflectionMemerCount =
+    MaxReflectionMemberCount;
 
 namespace detail
 {
