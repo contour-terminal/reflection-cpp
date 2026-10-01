@@ -58,6 +58,41 @@ struct WithReq2
     NoDefaultCtor b;
 };
 
+namespace
+{
+struct InternalRecord
+{
+    int first;
+    std::string second;
+};
+} // namespace
+
+TEST_CASE("internal linkage types", "[reflection]")
+{
+    static_assert(Reflection::CountMembers<InternalRecord> == 2);
+    static_assert(Reflection::MemberNameOf<0, InternalRecord> == "first");
+    static_assert(Reflection::MemberNameOf<1, InternalRecord> == "second");
+    static_assert(Reflection::NameOf<&InternalRecord::second> == "second");
+    static_assert(Reflection::MemberIndexOf<&InternalRecord::second> == 1);
+
+    CHECK(Reflection::Inspect(InternalRecord { .first = 1, .second = "two" }) == R"(first=1 second="two")");
+}
+
+TEST_CASE("function local types", "[reflection]")
+{
+    struct LocalRecord
+    {
+        int alpha;
+        std::string beta;
+    };
+
+    static_assert(Reflection::CountMembers<LocalRecord> == 2);
+    static_assert(Reflection::MemberNameOf<0, LocalRecord> == "alpha");
+    static_assert(Reflection::MemberNameOf<1, LocalRecord> == "beta");
+
+    CHECK(Reflection::Inspect(LocalRecord { .alpha = 1, .beta = "two" }) == R"(alpha=1 beta="two")");
+}
+
 TEST_CASE("MemberIndex", "[reflection]")
 {
     static_assert(Reflection::MemberIndexOf<&Person::name> == 0);

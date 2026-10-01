@@ -1068,8 +1068,24 @@ constexpr auto GetElementPtrAt(T&& t) noexcept
 
 namespace detail
 {
+    // Storage for an object of type T that is never constructed: only the addresses of its members are used.
     template <class T>
-    extern const T External;
+    union UninitializedStorage {
+        constexpr UninitializedStorage() noexcept:
+            dummy {}
+        {
+        }
+        constexpr ~UninitializedStorage() {}
+
+        char dummy;
+        T value;
+    };
+
+    template <class T>
+    inline constexpr UninitializedStorage<T> ExternalStorage {};
+
+    template <class T>
+    inline constexpr T const& External = ExternalStorage<T>.value;
 
 #if defined(__clang__)
     #pragma clang diagnostic push
